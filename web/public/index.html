@@ -329,11 +329,19 @@
         <div id="telem-eps"></div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Serial / UART Source</div></div>
+        <div class="card-header">
+          <div class="card-title">Flight Controller</div>
+          <div id="fc-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;display:flex;align-items:center;gap:5px">
+            <span class="sdot stop" id="fc-dot"></span>
+            <span id="fc-label">Detecting...</span>
+          </div>
+        </div>
         <div class="grid-3">
-          <div class="fg"><label class="lbl">Device</label><select id="uart-dev"><option>/dev/ttyAMA0</option><option>/dev/ttyUSB0</option><option>/dev/ttyUSB1</option><option>/dev/ttyACM0</option></select></div>
+          <div class="fg"><label class="lbl">Device</label><select id="uart-dev"><option>/dev/ttyACM0</option><option>/dev/ttyAMA0</option><option>/dev/ttyUSB0</option><option>/dev/ttyUSB1</option></select></div>
           <div class="fg"><label class="lbl">Baud Rate</label><select id="uart-baud"><option>9600</option><option>38400</option><option selected>57600</option><option>115200</option><option>230400</option><option>921600</option></select></div>
-          <div class="fg"><label class="lbl">Flow Control</label><select id="uart-flow"><option>None</option><option>Hardware (RTS/CTS)</option><option>Software (XON/XOFF)</option></select></div>
+          <div class="fg"><label class="lbl">MAVLink Router</label>
+            <div id="mavlink-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2);padding:8px 0">Checking...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -706,6 +714,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderPlugins();
   renderTelemEPs();
   renderStreamEPs();
+  detectFC();
   refreshStatus();
   refreshNet();
   connectStatsWS();
@@ -862,10 +871,45 @@ function updBadges() {
   if (b) { b.textContent=a; b.className='nav-badge'+(a>0?' g':''); }
 }
 
-// ─── Telemetry endpoints ──────────────────────────────────────────────────
+// ─── Telemetry / FC detection ────────────────────────────────────────────
+async function detectFC() {
+  try {
+    const r = await fetch('/api/telemetry/fc');
+    const d = await r.json();
+    const dot = document.getElementById('fc-dot');
+    const lbl = document.getElementById('fc-label');
+    const sel = document.getElementById('uart-dev');
+    if (d.detected) {
+      dot.className = 'sdot run';
+      lbl.textContent = d.device;
+      lbl.style.color = 'var(--green)';
+      // Set dropdown to detected device
+      let found = false;
+      for (const opt of sel.options) { if (opt.value === d.device) { opt.selected = true; found = true; } }
+      if (!found) { const o = document.createElement('option'); o.value = d.device; o.textContent = d.device; o.selected = true; sel.prepend(o); }
+    } else {
+      dot.className = 'sdot stop';
+      lbl.textContent = 'No FC detected';
+      lbl.style.color = 'var(--text3)';
+    }
+    // MAVLink router status
+    const active = await fetch('/api/services').then(r=>r.json());
+    const mst = document.getElementById('mavlink-status');
+    if (active.mavlink_router) {
+      mst.innerHTML = '<span style="color:var(--green)">● Running</span>';
+    } else {
+      mst.innerHTML = '<span style="color:var(--text3)">○ Stopped</span>';
+    }
+  } catch {}
+}
+
 function renderTelemEPs() {
   const eps = S.config?.telemetry_endpoints || [];
   const c = document.getElementById('telem-eps');
+  if (!eps.length) {
+    c.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">No telemetry endpoints configured. Config may still be loading — try refreshing.</div>';
+    return;
+  }
   c.innerHTML = `<div style="display:grid;grid-template-columns:28px 1fr 90px 160px 80px 60px;gap:8px;padding:4px 12px;margin-bottom:4px">
     <span style="font-size:10px;color:var(--text3)">#</span>
     <span style="font-size:10px;color:var(--text3)">NAME</span>
@@ -908,6 +952,10 @@ async function saveTelemetry() {
 function renderStreamEPs() {
   const eps = S.config?.video_endpoints || [];
   const c = document.getElementById('stream-eps');
+  if (!eps.length) {
+    c.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">No stream endpoints configured.</div>';
+    return;
+  }
   c.innerHTML = `<div style="display:grid;grid-template-columns:28px 1fr 90px 160px 70px 100px 60px;gap:8px;padding:4px 12px;margin-bottom:4px">
     <span style="font-size:10px;color:var(--text3)">#</span>
     <span style="font-size:10px;color:var(--text3)">NAME</span>
