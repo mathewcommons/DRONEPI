@@ -27,7 +27,9 @@ bootstrap_from_github() {
 
     echo -e "${CYAN}[BOOTSTRAP]${NC} Cloning DronePI from GitHub..."
     local CLONE_DIR="/tmp/dronepi-install-$$"
-    apt-get install -y -qq git 2>/dev/null || true
+    if ! command -v git &>/dev/null; then
+        apt-get update -qq && apt-get install -y -qq git
+    fi
     git clone --depth=1 "$REPO_URL" "$CLONE_DIR"
     # Re-exec install.sh from the cloned repo
     exec bash "$CLONE_DIR/install.sh" "$@"
@@ -161,7 +163,7 @@ create_dirs() {
     usermod -aG dialout,video,plugdev,netdev "$SERVICE_USER" 2>/dev/null || true
     mkdir -p "$INSTALL_DIR" "$WEB_DIR" "$CONFIG_DIR" "$LOG_DIR"
     mkdir -p "$CONFIG_DIR/plugins"
-    chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR" "$LOG_DIR"
+    chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR" "$CONFIG_DIR" "$LOG_DIR"
     log_info "Directories created ✓"
 }
 
@@ -598,8 +600,8 @@ SUDOEOF
 configure_firewall() {
     log_step "Configuring firewall (mode: $FIREWALL_MODE)..."
 
-    PORTS_TCP="22 8080 8554 8322 8888 8889 5760 1935"
-    PORTS_UDP="14550 14551 14552 14553 14554 14555 5600"
+    PORTS_TCP="22 8080 8554 8322 8888 8889 5760 1935 8890"
+    PORTS_UDP="14550 14551 14552 14553 14554 14555 5600 8189 8890"
 
     if [[ "$FIREWALL_MODE" == "ufw" ]]; then
         ufw --force reset
