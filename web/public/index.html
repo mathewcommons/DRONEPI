@@ -716,6 +716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderStreamEPs();
   detectFC();
   refreshStatus();
+  setInterval(refreshStatus, 10000);
   refreshNet();
   connectStatsWS();
   updPipe();

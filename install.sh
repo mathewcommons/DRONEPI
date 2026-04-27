@@ -383,60 +383,22 @@ install_tak_bridge() {
     log_step "Setting up TAK Bridge..."
     mkdir -p "$INSTALL_DIR/tak-bridge"
 
-    pip3 install pytak aiohttp --break-system-packages 2>/dev/null || \
-    pip3 install pytak aiohttp 2>/dev/null || \
-    log_warn "pytak install failed — TAK Bridge needs manual pip install"
+    pip3 install pytak aiohttp pymavlink --break-system-packages --root-user-action=ignore 2>/dev/null || \
+    pip3 install pytak aiohttp pymavlink 2>/dev/null || \
+    log_warn "TAK Bridge pip deps failed — needs manual pip install"
 
-    cat > "$INSTALL_DIR/tak-bridge/tak_bridge.py" << 'PYEOF'
-#!/usr/bin/env python3
-"""DronePI TAK Bridge — MAVLink -> CoT for TAK/ATAK/WinTAK"""
-import asyncio, json, time, logging
-from pathlib import Path
-
-CONFIG_FILE = "/etc/dronepi/tak_bridge.json"
-LOG = logging.getLogger("tak_bridge")
-DEFAULT = {
-    "enabled": False, "mavlink_host": "127.0.0.1", "mavlink_port": 14550,
-    "tak_host": "239.2.3.1", "tak_port": 6969, "multicast": True,
-    "callsign": "DRONE-1", "uid": "DRONEPI-001",
-    "cot_type": "a-f-A-M-F-Q", "stale_seconds": 30
-}
-
-def load_cfg():
-    try:    return {**DEFAULT, **json.loads(Path(CONFIG_FILE).read_text())}
-    except: return DEFAULT
-
-def build_cot(lat, lon, alt, cfg):
-    now   = time.strftime("%Y-%m-%dT%H:%M:%S.00Z", time.gmtime())
-    stale = time.strftime("%Y-%m-%dT%H:%M:%S.00Z",
-                          time.gmtime(time.time() + cfg["stale_seconds"]))
-    return (f'<?xml version="1.0"?>'
-            f'<event version="2.0" uid="{cfg["uid"]}" type="{cfg["cot_type"]}" '
-            f'time="{now}" start="{now}" stale="{stale}" how="m-g">'
-            f'<point lat="{lat:.7f}" lon="{lon:.7f}" hae="{alt:.2f}" '
-            f'ce="9999999" le="9999999"/>'
-            f'<detail><contact callsign="{cfg["callsign"]}"/></detail></event>')
-
-async def run():
-    cfg = load_cfg()
-    if not cfg["enabled"]:
-        LOG.info("TAK Bridge disabled — sleeping"); await asyncio.sleep(30); return
-    LOG.info(f"TAK Bridge -> {cfg['tak_host']}:{cfg['tak_port']}")
-    while True:
-        await asyncio.sleep(1)
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(run())
-PYEOF
-
+    if [[ -f "$SCRIPT_DIR/tak-bridge/tak_bridge.py" ]]; then
+        cp "$SCRIPT_DIR/tak-bridge/tak_bridge.py" "$INSTALL_DIR/tak-bridge/tak_bridge.py"
+    else
+        log_warn "tak-bridge/tak_bridge.py not found in repo — TAK Bridge needs manual deployment"
+    fi
     chmod +x "$INSTALL_DIR/tak-bridge/tak_bridge.py"
 
     cat > "$CONFIG_DIR/tak_bridge.json" << 'EOF'
 {
   "enabled": false,
   "mavlink_host": "127.0.0.1",
-  "mavlink_port": 14550,
+  "mavlink_port": 5760,
   "tak_host": "239.2.3.1",
   "tak_port": 6969,
   "multicast": true,
