@@ -1238,6 +1238,21 @@ function stopStatusPoll() {
   if (S.statusPollTimer) { clearInterval(S.statusPollTimer); S.statusPollTimer = null; }
 }
 
+// ─── Clipboard helper (works over HTTP) ──────────────────────────────────
+function copyText(text, feedbackEl) {
+  function done() { if (feedbackEl) { const orig = feedbackEl.textContent; feedbackEl.textContent = 'Copied!'; feedbackEl.style.color = 'var(--green)'; setTimeout(() => { feedbackEl.textContent = orig; feedbackEl.style.color = ''; }, 1000); } }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallback());
+  } else { fallback(); }
+  function fallback() {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch {}
+    document.body.removeChild(ta);
+  }
+}
+
 // ─── Connection Strings ──────────────────────────────────────────────────
 async function loadConnStrings() {
   try {
@@ -1248,13 +1263,13 @@ async function loadConnStrings() {
     const el = document.getElementById('conn-strings');
 
     function row(app, str, ztStr) {
-      const ztRow = ztStr ? `<div style="margin-top:2px;color:var(--text3)"><span style="font-size:10px;background:rgba(0,212,255,.1);color:var(--accent);padding:1px 5px;border-radius:3px;margin-right:4px">ZT</span><code style="color:var(--text3);cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.color='var(--green)';setTimeout(()=>this.style.color='var(--text3)',1000)">${ztStr}</code></div>` : '';
+      const ztRow = ztStr ? `<div style="margin-top:2px;color:var(--text3)"><span style="font-size:10px;background:rgba(0,212,255,.1);color:var(--accent);padding:1px 5px;border-radius:3px;margin-right:4px">ZT</span><code style="color:var(--text3);cursor:pointer" onclick="copyText(this.textContent,this)">${ztStr}</code></div>` : '';
       return `<div style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:600;font-size:12px;color:var(--text)">${app}</span>
-          <button class="btn sm" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.querySelector('code').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1000)" style="font-size:10px;padding:2px 8px">Copy</button>
+          <button class="btn sm" onclick="copyText(this.parentElement.nextElementSibling.querySelector('code').textContent,this)" style="font-size:10px;padding:2px 8px">Copy</button>
         </div>
-        <div><code style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.color='var(--green)';setTimeout(()=>this.style.color='var(--accent)',1000)">${str}</code></div>
+        <div><code style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);word-break:break-all;cursor:pointer" onclick="copyText(this.textContent,this)">${str}</code></div>
         ${ztRow}
       </div>`;
     }
