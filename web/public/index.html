@@ -320,28 +320,91 @@
 
     <!-- TELEMETRY -->
     <div id="tab-telemetry" class="tab-panel">
-      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Telemetry Endpoints</div>
-      <div class="card">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Telemetry</div>
+
+      <!-- Live Telemetry -->
+      <div class="card" style="margin-bottom:16px">
         <div class="card-header">
-          <div class="card-title">MAVLink Endpoints <span style="color:var(--text3);font-size:12px;font-weight:400;margin-left:8px">6 configurable</span></div>
-          <button class="btn pri" onclick="saveTelemetry()">💾 Save &amp; Apply</button>
+          <div class="card-title">Live Telemetry</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="sdot stop" id="telem-ws-dot"></span>
+            <span id="telem-ws-label" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3)">Disconnected</span>
+            <button class="btn sm" onclick="connectTelemetryWS()">Connect</button>
+          </div>
         </div>
-        <div id="telem-eps"></div>
+        <!-- Aircraft Info -->
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;padding:8px 12px;background:var(--bg3);border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:12px">
+          <span>Aircraft: <span id="tl-type" style="color:var(--accent)">—</span></span>
+          <span>Mode: <span id="tl-mode" style="color:var(--yellow)">—</span></span>
+          <span>Armed: <span id="tl-armed" style="color:var(--text3)">—</span></span>
+          <span>System: <span id="tl-sysid" style="color:var(--text3)">—</span></span>
+        </div>
+        <div class="grid-4" style="font-family:'Share Tech Mono',monospace;font-size:12px">
+          <!-- Attitude -->
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:6px">ATTITUDE</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div>Roll <span id="tl-roll" style="color:var(--accent);float:right">—</span></div>
+              <div>Pitch <span id="tl-pitch" style="color:var(--accent);float:right">—</span></div>
+              <div>Yaw <span id="tl-yaw" style="color:var(--accent);float:right">—</span></div>
+            </div>
+          </div>
+          <!-- Position -->
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:6px">POSITION</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div>Lat <span id="tl-lat" style="color:var(--accent);float:right">—</span></div>
+              <div>Lon <span id="tl-lon" style="color:var(--accent);float:right">—</span></div>
+              <div>Alt <span id="tl-alt" style="color:var(--accent);float:right">—</span></div>
+              <div>Hdg <span id="tl-hdg" style="color:var(--accent);float:right">—</span></div>
+            </div>
+          </div>
+          <!-- GPS -->
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:6px">GPS</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div>Fix <span id="tl-fix" style="color:var(--accent);float:right">—</span></div>
+              <div>Sats <span id="tl-sats" style="color:var(--accent);float:right">—</span></div>
+              <div>HDOP <span id="tl-hdop" style="color:var(--accent);float:right">—</span></div>
+            </div>
+          </div>
+          <!-- Power & Speed -->
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:6px">POWER / SPEED</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div>Batt <span id="tl-batt" style="color:var(--accent);float:right">—</span></div>
+              <div>Volts <span id="tl-volts" style="color:var(--accent);float:right">—</span></div>
+              <div>GSpd <span id="tl-gspd" style="color:var(--accent);float:right">—</span></div>
+              <div>Thr <span id="tl-thr" style="color:var(--accent);float:right">—</span></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Flight Controller</div>
-          <div id="fc-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;display:flex;align-items:center;gap:5px">
-            <span class="sdot stop" id="fc-dot"></span>
-            <span id="fc-label">Detecting...</span>
+
+      <!-- FC & Endpoints -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Flight Controller</div>
+            <div id="fc-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;display:flex;align-items:center;gap:5px">
+              <span class="sdot stop" id="fc-dot"></span>
+              <span id="fc-label">Detecting...</span>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="fg"><label class="lbl">Device</label><select id="uart-dev"><option>/dev/ttyACM0</option><option>/dev/ttyAMA0</option><option>/dev/ttyUSB0</option><option>/dev/ttyUSB1</option></select></div>
+            <div class="fg"><label class="lbl">Baud Rate</label><select id="uart-baud"><option>9600</option><option>38400</option><option selected>57600</option><option>115200</option><option>230400</option><option>921600</option></select></div>
+            <div class="fg"><label class="lbl">MAVLink Router</label>
+              <div id="mavlink-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2);padding:8px 0">Checking...</div>
+            </div>
           </div>
         </div>
-        <div class="grid-3">
-          <div class="fg"><label class="lbl">Device</label><select id="uart-dev"><option>/dev/ttyACM0</option><option>/dev/ttyAMA0</option><option>/dev/ttyUSB0</option><option>/dev/ttyUSB1</option></select></div>
-          <div class="fg"><label class="lbl">Baud Rate</label><select id="uart-baud"><option>9600</option><option>38400</option><option selected>57600</option><option>115200</option><option>230400</option><option>921600</option></select></div>
-          <div class="fg"><label class="lbl">MAVLink Router</label>
-            <div id="mavlink-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2);padding:8px 0">Checking...</div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">MAVLink Endpoints <span style="color:var(--text3);font-size:12px;font-weight:400;margin-left:8px">6 configurable</span></div>
+            <button class="btn pri" onclick="saveTelemetry()">💾 Save &amp; Apply</button>
           </div>
+          <div id="telem-eps"></div>
         </div>
       </div>
     </div>
@@ -480,6 +543,13 @@
       <div class="card">
         <div class="card-header"><div class="card-title">MediaMTX Status</div><button class="btn sm" onclick="refreshMTX()">↻</button></div>
         <div id="mtx-status" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2)">Click refresh...</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Connection Strings</div>
+          <button class="btn sm" onclick="loadConnStrings()">↻ Refresh IPs</button>
+        </div>
+        <div id="conn-strings" style="font-size:12px;color:var(--text2)">Loading...</div>
       </div>
     </div>
 
@@ -718,6 +788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   detectFC();
   loadTakConfig();
   refreshTakLog();
+  loadConnStrings();
   refreshStatus();
   setInterval(refreshStatus, 10000);
   refreshNet();
@@ -1165,6 +1236,102 @@ function startStatusPoll() {
 }
 function stopStatusPoll() {
   if (S.statusPollTimer) { clearInterval(S.statusPollTimer); S.statusPollTimer = null; }
+}
+
+// ─── Connection Strings ──────────────────────────────────────────────────
+async function loadConnStrings() {
+  try {
+    const r = await fetch('/api/system/ips');
+    const ips = await r.json();
+    const ip = ips.local || window.location.hostname;
+    const zt = ips.zerotier;
+    const el = document.getElementById('conn-strings');
+
+    function row(app, str, ztStr) {
+      const ztRow = ztStr ? `<div style="margin-top:2px;color:var(--text3)"><span style="font-size:10px;background:rgba(0,212,255,.1);color:var(--accent);padding:1px 5px;border-radius:3px;margin-right:4px">ZT</span><code style="color:var(--text3);cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.color='var(--green)';setTimeout(()=>this.style.color='var(--text3)',1000)">${ztStr}</code></div>` : '';
+      return `<div style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:600;font-size:12px;color:var(--text)">${app}</span>
+          <button class="btn sm" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.querySelector('code').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1000)" style="font-size:10px;padding:2px 8px">Copy</button>
+        </div>
+        <div><code style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.color='var(--green)';setTimeout(()=>this.style.color='var(--accent)',1000)">${str}</code></div>
+        ${ztRow}
+      </div>`;
+    }
+
+    el.innerHTML =
+      row('Mission Planner (GStreamer RTSP)', `gst-launch-1.0 rtspsrc location=rtsp://${ip}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink`, zt ? `gst-launch-1.0 rtspsrc location=rtsp://${zt}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink` : null) +
+      row('Mission Planner (GStreamer UDP)', `gst-launch-1.0 udpsrc port=5600 ! application/x-rtp,payload=96 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink`, null) +
+      row('QGroundControl', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
+      row('VLC Media Player', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
+      row('OBS Studio (Media Source)', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
+      row('Browser (WebRTC)', `http://${ip}:8889/drone0/`, zt ? `http://${zt}:8889/drone0/` : null) +
+      row('HLS (m3u8)', `http://${ip}:8888/drone0/index.m3u8`, zt ? `http://${zt}:8888/drone0/index.m3u8` : null) +
+      row('ATAK Video Plugin', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null);
+  } catch { document.getElementById('conn-strings').textContent = 'Error loading IPs'; }
+}
+
+// ─── Live Telemetry WS ───────────────────────────────────────────────────
+const MAV_TYPE = {0:'Generic',1:'Fixed Wing',2:'Quadrotor',3:'Coaxial',4:'Helicopter',6:'GCS',10:'Ground Rover',11:'Boat',13:'Hexarotor',14:'Octorotor',15:'Tricopter',20:'VTOL Tiltrotor',21:'VTOL Fixed',26:'Airship',29:'VTOL Tailsitter'};
+const MAV_MODE_FLAG_ARMED = 128;
+const GPS_FIX = {0:'No GPS',1:'No Fix',2:'2D',3:'3D',4:'DGPS',5:'RTK Float',6:'RTK Fixed'};
+let telemWs = null;
+function connectTelemetryWS() {
+  if (telemWs && telemWs.readyState <= 1) { telemWs.close(); telemWs = null; }
+  const dot = document.getElementById('telem-ws-dot');
+  const lbl = document.getElementById('telem-ws-label');
+  dot.className = 'sdot'; dot.style.background = 'var(--yellow)';
+  lbl.textContent = 'Connecting...'; lbl.style.color = 'var(--yellow)';
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  telemWs = new WebSocket(`${proto}://${location.host}/ws/telemetry`);
+  telemWs.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.error) { lbl.textContent = d.error; lbl.style.color = 'var(--red)'; dot.className = 'sdot stop'; return; }
+      dot.className = 'sdot run'; lbl.textContent = 'Live'; lbl.style.color = 'var(--green)';
+      if (d.HEARTBEAT) {
+        const h = d.HEARTBEAT;
+        document.getElementById('tl-type').textContent = MAV_TYPE[h.type] || 'Type '+h.type;
+        document.getElementById('tl-sysid').textContent = '#'+(h.mavlink_version||'?');
+        const armed = !!(h.base_mode & MAV_MODE_FLAG_ARMED);
+        const ae = document.getElementById('tl-armed');
+        ae.textContent = armed ? 'ARMED' : 'DISARMED';
+        ae.style.color = armed ? 'var(--red)' : 'var(--green)';
+        document.getElementById('tl-mode').textContent = h.custom_mode || '—';
+      }
+      if (d.ATTITUDE) {
+        const a = d.ATTITUDE;
+        document.getElementById('tl-roll').textContent = (a.roll * 57.2958).toFixed(1) + '\u00B0';
+        document.getElementById('tl-pitch').textContent = (a.pitch * 57.2958).toFixed(1) + '\u00B0';
+        document.getElementById('tl-yaw').textContent = (a.yaw * 57.2958).toFixed(1) + '\u00B0';
+      }
+      if (d.GLOBAL_POSITION_INT) {
+        const g = d.GLOBAL_POSITION_INT;
+        document.getElementById('tl-lat').textContent = (g.lat / 1e7).toFixed(6);
+        document.getElementById('tl-lon').textContent = (g.lon / 1e7).toFixed(6);
+        document.getElementById('tl-alt').textContent = (g.alt / 1000).toFixed(1) + 'm';
+        document.getElementById('tl-hdg').textContent = (g.hdg / 100).toFixed(0) + '\u00B0';
+      }
+      if (d.GPS_RAW_INT) {
+        const g = d.GPS_RAW_INT;
+        document.getElementById('tl-fix').textContent = GPS_FIX[g.fix_type] || g.fix_type;
+        document.getElementById('tl-sats').textContent = g.satellites_visible;
+        document.getElementById('tl-hdop').textContent = (g.eph / 100).toFixed(1);
+      }
+      if (d.SYS_STATUS) {
+        const s = d.SYS_STATUS;
+        document.getElementById('tl-batt').textContent = s.battery_remaining + '%';
+        document.getElementById('tl-volts').textContent = (s.voltage_battery / 1000).toFixed(1) + 'V';
+      }
+      if (d.VFR_HUD) {
+        const v = d.VFR_HUD;
+        document.getElementById('tl-gspd').textContent = v.groundspeed.toFixed(1) + 'm/s';
+        document.getElementById('tl-thr').textContent = v.throttle + '%';
+      }
+    } catch {}
+  };
+  telemWs.onclose = () => { dot.className = 'sdot stop'; lbl.textContent = 'Disconnected'; lbl.style.color = 'var(--text3)'; };
+  telemWs.onerror = () => { dot.className = 'sdot stop'; lbl.textContent = 'Error'; lbl.style.color = 'var(--red)'; };
 }
 
 // ─── TAK Bridge ──────────────────────────────────────────────────────────

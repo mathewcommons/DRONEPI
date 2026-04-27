@@ -289,6 +289,60 @@ app.ws('/ws/stats', (ws) => {
     ws.on('close', () => clearInterval(iv));
 });
 
+// ─── WebSocket: Live Telemetry ────────────────────────────────────────────
+app.ws('/ws/telemetry', (ws) => {
+    let proc = null;
+    try {
+        proc = spawn('/usr/bin/python3', ['-u', '-c', `
+import sys, json, time
+from pymavlink import mavutil
+
+try:
+    m = mavutil.mavlink_connection('tcp:127.0.0.1:5760', source_system=253)
+    m.wait_heartbeat(timeout=10)
+except Exception as e:
+    print(json.dumps({"error": str(e)}), flush=True)
+    sys.exit(1)
+
+types = ['HEARTBEAT','GLOBAL_POSITION_INT','ATTITUDE','SYS_STATUS','GPS_RAW_INT','VFR_HUD']
+last = 0
+data = {}
+fc_sysid = m.target_system  # lock to the FC that sent first heartbeat
+while True:
+    msg = m.recv_match(type=types, blocking=True, timeout=2)
+    if msg is None:
+        continue
+    # Only accept messages from the FC, not from GCS or other components
+    if msg.get_srcSystem() != fc_sysid:
+        continue
+    t = msg.get_type()
+    d = msg.to_dict()
+    d.pop('mavpackettype', None)
+    data[t] = d
+    now = time.time()
+    if now - last >= 0.25:
+        last = now
+        print(json.dumps(data), flush=True)
+`]);
+        proc.stdout.on('data', (chunk) => {
+            if (ws.readyState === 1) {
+                for (const line of chunk.toString().split('\n').filter(Boolean)) {
+                    try { JSON.parse(line); ws.send(line); } catch {}
+                }
+            }
+        });
+        proc.stderr.on('data', (chunk) => {
+            if (ws.readyState === 1) ws.send(JSON.stringify({ error: chunk.toString().trim() }));
+        });
+        proc.on('exit', () => {
+            if (ws.readyState === 1) ws.send(JSON.stringify({ error: 'MAVLink connection closed' }));
+        });
+    } catch(e) {
+        ws.send(JSON.stringify({ error: e.message }));
+    }
+    ws.on('close', () => { if (proc) { proc.kill(); proc = null; } });
+});
+
 // ─── WebSocket: PTY Terminal ───────────────────────────────────────────────
 const terminals = new Map();
 
@@ -549,6 +603,22 @@ async function regenerateMavlinkConfig(cfg) {
     }
     try { fs.writeFileSync(`${CONFIG_DIR}/mavlink-router.conf`, lines.join('\n')); } catch {}
 }
+
+// ─── Routes: Connection IPs ───────────────────────────────────────────────
+app.get('/api/system/ips', async (req, res) => {
+    try {
+        const ifaces = os.networkInterfaces();
+        const ips = { local: null, zerotier: null };
+        for (const [name, addrs] of Object.entries(ifaces)) {
+            for (const a of addrs) {
+                if (a.family !== 'IPv4' || a.internal) continue;
+                if (name.startsWith('zt')) ips.zerotier = a.address;
+                else if (!ips.local && !name.startsWith('docker') && !name.startsWith('br-')) ips.local = a.address;
+            }
+        }
+        res.json(ips);
+    } catch(e) { res.json({ local: null, zerotier: null }); }
+});
 
 // ─── Routes: TAK Bridge Config ────────────────────────────────────────────
 const TAK_CONFIG_FILE = `${CONFIG_DIR}/tak_bridge.json`;
