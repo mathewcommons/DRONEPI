@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "mavlink_host": "127.0.0.1",
+  "mavlink_port": 14550,
+  "tak_host": "239.2.3.1",
+  "tak_port": 6969,
+  "multicast": true,
+  "callsign": "DRONE-1",
+  "uid": "DRONEPI-001",
+  "cot_type": "a-f-A-M-F-Q",
+  "stale_seconds": 30
+}

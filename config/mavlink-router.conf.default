@@ -1,0 +1,38 @@
+[General]
+TcpServerPort=5760
+ReportStats=false
+MavlinkDialect=common
+
+[UartEndpoint FC]
+Device=/dev/ttyAMA0
+Baud=57600
+
+[UdpEndpoint GCS1]
+Mode=Normal
+Address=0.0.0.0
+Port=14550
+
+[UdpEndpoint GCS2]
+Mode=Normal
+Address=0.0.0.0
+Port=14551
+
+[UdpEndpoint GCS3]
+Mode=Normal
+Address=0.0.0.0
+Port=14552
+
+[UdpEndpoint GCS4]
+Mode=Normal
+Address=0.0.0.0
+Port=14553
+
+[UdpEndpoint GCS5]
+Mode=Normal
+Address=0.0.0.0
+Port=14554
+
+[UdpEndpoint GCS6]
+Mode=Normal
+Address=0.0.0.0
+Port=14555

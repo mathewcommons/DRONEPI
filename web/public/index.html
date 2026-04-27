@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DronePI5 — Drone Management Suite</title>
+<!-- xterm.js from CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg0:#080c10; --bg1:#0d1117; --bg2:#161b22; --bg3:#1c2330; --bg4:#21262d;
+    --border:#30363d; --border2:#21262d;
+    --accent:#00d4ff; --accent2:#0099cc; --accent3:#005577;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922;
+    --orange:#e3a057; --purple:#bc8cff;
+    --text:#e6edf3; --text2:#8b949e; --text3:#484f58;
+    --glow:0 0 20px rgba(0,212,255,.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:'Exo 2',sans-serif;background:var(--bg0);color:var(--text);display:flex;flex-direction:column;height:100vh}
+
+  /* ── Header ─────────────────────────────── */
+  header{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
+  header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.4}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,.5)}
+  .header-stats{display:flex;gap:20px;align-items:center}
+  .stat-pill{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2);background:var(--bg2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)}
+  .stat-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+  .stat-pill .dot.warn{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+  .stat-pill .dot.hot{background:var(--red);box-shadow:0 0 6px var(--red)}
+  .stat-pill .dot.off{background:var(--text3);box-shadow:none}
+
+  /* ── Layout ─────────────────────────────── */
+  .app-body{display:flex;flex:1;overflow:hidden}
+
+  /* ── Sidebar ────────────────────────────── */
+  .sidebar{width:218px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .nav-section-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;padding:18px 16px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text2);border-left:3px solid transparent;transition:all .15s;user-select:none}
+  .nav-item:hover{background:var(--bg2);color:var(--text)}
+  .nav-item.active{background:linear-gradient(90deg,rgba(0,212,255,.08),transparent);color:var(--accent);border-left-color:var(--accent)}
+  .nav-item .ni{width:17px;height:17px;flex-shrink:0;opacity:.65}
+  .nav-item.active .ni{opacity:1}
+  .nav-badge{margin-left:auto;background:var(--accent3);color:var(--accent);font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;font-family:'Share Tech Mono',monospace}
+  .nav-badge.g{background:rgba(63,185,80,.15);color:var(--green)}
+  .nav-badge.r{background:rgba(248,81,73,.15);color:var(--red)}
+
+  /* ── Main ───────────────────────────────── */
+  .main{flex:1;overflow-y:auto;padding:24px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+
+  /* ── Terminal tab gets special layout ───── */
+  #tab-terminal{display:none;flex-direction:column;height:100%}
+  #tab-terminal.active{display:flex}
+
+  .page-title{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;color:var(--text);letter-spacing:1px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+  .page-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+
+  /* ── Cards ──────────────────────────────── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .card-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--text);display:flex;align-items:center;gap:8px}
+  .card-title .ic{color:var(--accent)}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+
+  /* ── Plugin cards ───────────────────────── */
+  .plugin-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,box-shadow .2s}
+  .plugin-card.on{border-color:rgba(0,212,255,.3);box-shadow:var(--glow)}
+  .plugin-header{display:flex;align-items:center;justify-content:space-between}
+  .plugin-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:.5px}
+  .plugin-desc{font-size:12px;color:var(--text2);line-height:1.5}
+  .plugin-status{font-size:11px;font-family:'Share Tech Mono',monospace;display:flex;align-items:center;gap:5px}
+  .sdot{width:7px;height:7px;border-radius:50%;background:var(--text3)}
+  .sdot.run{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+  .sdot.stop{background:var(--red)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ── Toggle ─────────────────────────────── */
+  .toggle{position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0}
+  .toggle input{display:none}
+  .ttrack{width:100%;height:100%;background:var(--bg0);border:1px solid var(--border);border-radius:12px;transition:all .2s}
+  .toggle input:checked~.ttrack{background:rgba(0,212,255,.15);border-color:var(--accent2);box-shadow:0 0 10px rgba(0,212,255,.2)}
+  .tthumb{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--text3);border-radius:50%;transition:all .2s}
+  .toggle input:checked~.tthumb{left:23px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+  /* ── Endpoint rows ──────────────────────── */
+  .eprow{display:grid;gap:8px;align-items:center;padding:10px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;margin-bottom:6px;transition:border-color .15s}
+  .eprow:hover{border-color:var(--border)}
+  .eprow.on{border-left:3px solid var(--accent2)}
+  .epn{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);text-align:center}
+
+  /* ── Inputs ─────────────────────────────── */
+  input[type=text],input[type=number],input[type=password],select,textarea{background:var(--bg0);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;padding:6px 10px;width:100%;outline:none;transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(0,212,255,.1)}
+  select option{background:var(--bg1)}
+  label.lbl{font-size:12px;color:var(--text2);margin-bottom:4px;display:block}
+  .fg{margin-bottom:12px}
+
+  /* ── Buttons ────────────────────────────── */
+  .btn{padding:8px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Exo 2',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .btn:hover{background:var(--bg4);border-color:var(--text3)}
+  .btn.pri{background:rgba(0,212,255,.1);border-color:var(--accent2);color:var(--accent)}
+  .btn.pri:hover{background:rgba(0,212,255,.2);box-shadow:var(--glow)}
+  .btn.dan{background:rgba(248,81,73,.08);border-color:#5c2323;color:var(--red)}
+  .btn.dan:hover{background:rgba(248,81,73,.15)}
+  .btn.suc{background:rgba(63,185,80,.08);border-color:#1a4229;color:var(--green)}
+  .btn.suc:hover{background:rgba(63,185,80,.15)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+
+  /* ── Stat boxes ─────────────────────────── */
+  .sbox{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+  .sbox .sv{font-family:'Share Tech Mono',monospace;font-size:28px;color:var(--accent);line-height:1.1}
+  .sbox .sl{font-size:11px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+
+  /* ── Video ──────────────────────────────── */
+  .vprev{background:#000;border:1px solid var(--border);border-radius:8px;width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .vprev video{width:100%;height:100%;object-fit:contain;display:none}
+  .vprev video.act{display:block}
+  .vph{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--text3);font-size:13px}
+  .vph svg{width:48px;height:48px;opacity:.3}
+  .vov{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid rgba(63,185,80,.3);display:none}
+  .vov.vis{display:block}
+  .pprev{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);background:var(--bg0);border:1px solid var(--border);border-radius:5px;padding:10px 12px;margin-top:8px;word-break:break-all;min-height:36px}
+
+  /* ── Log viewer ─────────────────────────── */
+  .logv{background:var(--bg0);border:1px solid var(--border);border-radius:6px;padding:10px;height:280px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:11px;line-height:1.6;color:var(--text2)}
+  .logv .le{color:var(--red)}
+  .logv .lw{color:var(--yellow)}
+  .logv .lo{color:var(--green)}
+
+  /* ── IP table ───────────────────────────── */
+  .ipt{width:100%;border-collapse:collapse}
+  .ipt th,.ipt td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border2);font-size:13px}
+  .ipt th{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);background:var(--bg3)}
+  .ipt td{font-family:'Share Tech Mono',monospace;color:var(--text2)}
+  .ipt tr:hover td{background:var(--bg3);color:var(--text)}
+
+  /* ── Badges ─────────────────────────────── */
+  .bdg{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-family:'Share Tech Mono',monospace;font-weight:700;text-transform:uppercase}
+  .bdg-udp{background:rgba(0,212,255,.1);color:var(--accent)}
+  .bdg-tcp{background:rgba(188,140,255,.1);color:var(--purple)}
+  .bdg-rtsp{background:rgba(227,160,87,.1);color:var(--orange)}
+  .bdg-rtmp{background:rgba(248,81,73,.1);color:var(--red)}
+  .bdg-hls{background:rgba(63,185,80,.1);color:var(--green)}
+  .bdg-webrtc{background:rgba(210,153,34,.1);color:var(--yellow)}
+
+  .sep{height:1px;background:linear-gradient(90deg,var(--border),transparent);margin:20px 0}
+  .igrp{display:flex;gap:8px;align-items:flex-end}
+  .igrp>*{flex:1}
+  .igrp>.btn{flex:0 0 auto}
+
+  /* ── Toast ──────────────────────────────── */
+  #toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+  .tmsg{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:6px;font-size:13px;animation:sIn .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+  .tmsg.ok{border-left-color:var(--green)}
+  .tmsg.err{border-left-color:var(--red)}
+  @keyframes sIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+  /* ── TERMINAL ───────────────────────────── */
+  .term-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0}
+  .term-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--accent);display:flex;align-items:center;gap:8px}
+  .term-dot{width:10px;height:10px;border-radius:50%}
+  .td-red{background:#ff5f57}
+  .td-yel{background:#febc2e}
+  .td-grn{background:#28c840}
+  .term-wrap{flex:1;overflow:hidden;padding:0;background:#0a0e12;position:relative}
+  #terminal-container{width:100%;height:100%;padding:8px}
+  .term-status{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);margin-left:auto}
+  .term-status.conn{color:var(--green)}
+  .term-status.disc{color:var(--red)}
+
+  /* xterm overrides */
+  .xterm{padding:4px}
+  .xterm-viewport{overflow-y:auto!important;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  .xterm-screen canvas{border-radius:0}
+
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="3" fill="#00d4ff"/>
+      <line x1="16" y1="2"  x2="16" y2="8"  stroke="#00d4ff" stroke-width="2"/>
+      <line x1="16" y1="24" x2="16" y2="30" stroke="#00d4ff" stroke-width="2"/>
+      <line x1="2"  y1="16" x2="8"  y2="16" stroke="#00d4ff" stroke-width="2"/>
+      <line x1="24" y1="16" x2="30" y2="16" stroke="#00d4ff" stroke-width="2"/>
+      <circle cx="16" cy="4"  r="3" fill="#0099cc"/>
+      <circle cx="16" cy="28" r="3" fill="#0099cc"/>
+      <circle cx="4"  cy="16" r="3" fill="#0099cc"/>
+      <circle cx="28" cy="16" r="3" fill="#0099cc"/>
+    </svg>
+    DRONEPI5
+  </div>
+  <div class="header-stats">
+    <div class="stat-pill"><span class="dot" id="dot-cpu"></span><span id="hdr-cpu">CPU --</span></div>
+    <div class="stat-pill"><span class="dot" id="dot-mem"></span><span id="hdr-mem">MEM --</span></div>
+    <div class="stat-pill"><span class="dot" id="dot-tmp"></span><span id="hdr-tmp">TEMP --°C</span></div>
+    <div class="stat-pill"><span class="dot off" id="dot-conn"></span><span id="hdr-conn">OFFLINE</span></div>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <div class="nav-item active" data-tab="dashboard" onclick="showTab(this,'dashboard')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item" data-tab="plugins" onclick="showTab(this,'plugins')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span>Plugins</span>
+      <span class="nav-badge" id="nb-plugins">0</span>
+    </div>
+
+    <div class="nav-section-label">Networking</div>
+    <div class="nav-item" data-tab="telemetry" onclick="showTab(this,'telemetry')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span>Telemetry</span>
+      <span class="nav-badge" id="nb-telem">6</span>
+    </div>
+    <div class="nav-item" data-tab="network" onclick="showTab(this,'network')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span>IP Manager</span>
+    </div>
+
+    <div class="nav-section-label">Video</div>
+    <div class="nav-item" data-tab="video" onclick="showTab(this,'video')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span>Video Source</span>
+    </div>
+    <div class="nav-item" data-tab="streams" onclick="showTab(this,'streams')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6s2-2 5-2 5 2 5 2M1 12s2-2 5-2 5 2 5 2M1 18s2-2 5-2 5 2 5 2"/><path d="M12 12c2-2 5-2 5-2"/><circle cx="19" cy="10" r="3"/></svg>
+      <span>Streams</span>
+      <span class="nav-badge" id="nb-streams">6</span>
+    </div>
+    <div class="nav-item" data-tab="mediamtx" onclick="showTab(this,'mediamtx')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
+      <span>MediaMTX</span>
+    </div>
+
+    <div class="nav-section-label">Plugins</div>
+    <div class="nav-item" data-tab="zerotier" onclick="showTab(this,'zerotier')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 1 11.4 0"/><path d="M17.7 17.7a8 8 0 0 1-11.4 0"/><path d="M3 12a9 9 0 0 1 9-9"/><path d="M21 12a9 9 0 0 1-9 9"/></svg>
+      <span>ZeroTier</span>
+    </div>
+    <div class="nav-item" data-tab="tailscale" onclick="showTab(this,'tailscale')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>Tailscale</span>
+    </div>
+    <div class="nav-item" data-tab="modem" onclick="showTab(this,'modem')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+      <span>Modem</span>
+    </div>
+    <div class="nav-item" data-tab="tak" onclick="showTab(this,'tak')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+      <span>TAK Bridge</span>
+    </div>
+
+    <div class="nav-section-label">System</div>
+    <div class="nav-item" data-tab="logs" onclick="showTab(this,'logs')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Logs</span>
+    </div>
+    <div class="nav-item" data-tab="terminal" onclick="showTab(this,'terminal')">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      <span>Terminal</span>
+      <span class="nav-badge" id="nb-term" style="display:none">LIVE</span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main" id="main-scroll">
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-panel active">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</div>
+      <div class="grid-4" style="margin-bottom:16px">
+        <div class="sbox"><div class="sv" id="d-cpu">--%</div><div class="sl">CPU Load</div></div>
+        <div class="sbox"><div class="sv" id="d-mem">-- MB</div><div class="sl">Memory</div></div>
+        <div class="sbox"><div class="sv" id="d-tmp">--°C</div><div class="sl">Temp</div></div>
+        <div class="sbox"><div class="sv" id="d-uptime">--</div><div class="sl">Uptime</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="ic">⚡</span> Service Status</div><button class="btn sm" onclick="refreshStatus()">↻ Refresh</button></div>
+        <div id="svc-dash-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="ic">📡</span> Active Telemetry</div></div>
+          <div id="dash-telem" style="font-size:13px;color:var(--text2)">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="ic">🎥</span> Active Streams</div></div>
+          <div id="dash-streams" style="font-size:13px;color:var(--text2)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLUGINS -->
+    <div id="tab-plugins" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Plugin Manager</div>
+      <div id="plugin-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
+    </div>
+
+    <!-- TELEMETRY -->
+    <div id="tab-telemetry" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Telemetry Endpoints</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">MAVLink Endpoints <span style="color:var(--text3);font-size:12px;font-weight:400;margin-left:8px">6 configurable</span></div>
+          <button class="btn pri" onclick="saveTelemetry()">💾 Save &amp; Apply</button>
+        </div>
+        <div id="telem-eps"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Serial / UART Source</div></div>
+        <div class="grid-3">
+          <div class="fg"><label class="lbl">Device</label><select id="uart-dev"><option>/dev/ttyAMA0</option><option>/dev/ttyUSB0</option><option>/dev/ttyUSB1</option><option>/dev/ttyACM0</option></select></div>
+          <div class="fg"><label class="lbl">Baud Rate</label><select id="uart-baud"><option>9600</option><option>38400</option><option selected>57600</option><option>115200</option><option>230400</option><option>921600</option></select></div>
+          <div class="fg"><label class="lbl">Flow Control</label><select id="uart-flow"><option>None</option><option>Hardware (RTS/CTS)</option><option>Software (XON/XOFF)</option></select></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NETWORK -->
+    <div id="tab-network" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>IP Address Manager</div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Network Interfaces</div><button class="btn sm" onclick="refreshNet()">↻ Refresh</button></div>
+        <table class="ipt"><thead><tr><th>Interface</th><th>IP Address</th><th>MAC</th><th>Type</th><th>Status</th></tr></thead>
+        <tbody id="net-tbody"><tr><td colspan="5" style="color:var(--text3)">Loading...</td></tr></tbody></table>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Static IP</div></div>
+          <div class="fg"><label class="lbl">Interface</label><select id="s-iface"><option>eth0</option><option>wlan0</option></select></div>
+          <div class="grid-2">
+            <div class="fg"><label class="lbl">IP Address</label><input type="text" id="s-ip" placeholder="192.168.1.100"/></div>
+            <div class="fg"><label class="lbl">Subnet</label><input type="text" id="s-mask" placeholder="255.255.255.0"/></div>
+            <div class="fg"><label class="lbl">Gateway</label><input type="text" id="s-gw" placeholder="192.168.1.1"/></div>
+            <div class="fg"><label class="lbl">DNS</label><input type="text" id="s-dns" placeholder="8.8.8.8"/></div>
+          </div>
+          <button class="btn pri" onclick="toast('Apply static IP via nmcli on device','ok')">Apply Static IP</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Hostname</div></div>
+          <div class="fg"><label class="lbl">Hostname</label><input type="text" id="hn-input" placeholder="dronepi"/></div>
+          <button class="btn" onclick="applyHostname()">Set Hostname</button>
+          <div class="sep"></div>
+          <p style="font-size:13px;color:var(--text2)">mDNS: <code style="color:var(--accent);font-family:monospace" id="mdns-lbl">dronepi.local</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIDEO SOURCE -->
+    <div id="tab-video" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Video Source &amp; Pipeline</div>
+      <div id="pipeline-status" class="card" style="margin-bottom:12px">
+        <div style="display:flex;gap:16px;align-items:center;font-family:'Share Tech Mono',monospace;font-size:12px">
+          <span>MediaMTX: <span id="ps-mtx" class="sdot stop"></span> <span id="ps-mtx-label">Unknown</span></span>
+          <span>FFmpeg: <span id="ps-ffmpeg" class="sdot stop"></span> <span id="ps-ffmpeg-label">Unknown</span></span>
+          <span>Path: <span id="ps-path">—</span></span>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Source Selection</div></div>
+            <div class="fg"><label class="lbl">Source Type</label>
+              <select id="vsrc" onchange="updPipe()">
+                <option value="csi">CSI / Raspberry Pi Camera</option>
+                <option value="usb">USB Camera (V4L2)</option>
+                <option value="rtsp_in">RTSP Input (re-stream)</option>
+                <option value="test">Test Pattern</option>
+                <option value="custom">Custom Pipeline</option>
+              </select>
+            </div>
+            <div id="vdev-row" class="fg"><label class="lbl">Device</label><select id="vdev" onchange="updPipe()"><option>/dev/video0</option></select></div>
+            <div id="vrtsp-row" class="fg" style="display:none"><label class="lbl">RTSP Source URL</label><input type="text" id="vrtsp-url" placeholder="rtsp://192.168.1.10:554/stream" oninput="updPipe()"/></div>
+            <div class="grid-2">
+              <div class="fg"><label class="lbl">Resolution</label>
+                <select id="vres" onchange="updPipe()">
+                  <option>640x480</option><option value="1280x720" selected>1280×720 HD</option>
+                  <option value="1920x1080">1920×1080 FHD</option><option value="3840x2160">3840×2160 4K</option>
+                </select>
+              </div>
+              <div class="fg"><label class="lbl">Framerate</label>
+                <select id="vfps" onchange="updPipe()"><option>15</option><option>24</option><option selected>30</option><option>60</option></select>
+              </div>
+              <div class="fg"><label class="lbl">Codec</label>
+                <select id="vcodec" onchange="updPipe()"><option value="h264">H.264</option><option value="h265">H.265</option><option value="mjpeg">MJPEG</option></select>
+              </div>
+              <div class="fg"><label class="lbl">Bitrate kbps</label><input type="number" id="vbr" value="2000" min="256" max="20000" oninput="updPipe()"/></div>
+            </div>
+            <div class="fg"><label class="lbl">Output Sink</label>
+              <select id="vsink" onchange="updPipe()">
+                <option value="rtsp">RTSP → MediaMTX</option><option value="udp">UDP RTP</option>
+                <option value="file">File (.mp4)</option><option value="webrtc">WebRTC → MediaMTX</option>
+              </select>
+            </div>
+            <div id="vcustom-row" class="fg" style="display:none">
+              <label class="lbl">Custom Pipeline</label>
+              <textarea id="vcustom" rows="3" placeholder="videotestsrc ! videoconvert ! autovideosink" oninput="updPipe()"></textarea>
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Generated pipeline:</div>
+            <div class="pprev" id="pipe-prev">Calculating...</div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn suc" onclick="startPipeline()">▶ Apply &amp; Start</button>
+              <button class="btn dan" onclick="stopPipeline()">■ Stop</button>
+              <button class="btn sm" onclick="detectDevices()">🔍 Scan Devices</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Video Preview</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span id="prev-status" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3)">Disconnected</span>
+                <span id="prev-dot" class="sdot stop"></span>
+              </div>
+            </div>
+            <div class="vprev" id="vprev-box">
+              <div class="vov" id="vov">● LIVE</div>
+              <iframe id="prev-iframe" style="width:100%;height:100%;border:none;display:none" allow="autoplay"></iframe>
+              <div class="vph" id="vph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                <span>No video stream active</span>
+                <span style="font-size:11px">Click Connect to start WebRTC preview</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+              <button class="btn pri" onclick="connectPreviewBtn()">▶ Connect</button>
+              <button class="btn dan" onclick="disconnectPreview()">■ Disconnect</button>
+              <button class="btn sm" onclick="window.open('http://'+location.hostname+':8889/drone0/','_blank')">⛶ Fullscreen</button>
+              <span style="font-size:11px;color:var(--text3);margin-left:auto">WebRTC &rarr; drone0</span>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--text3)">
+              RTSP: vlc rtsp://&lt;ip&gt;:8554/drone0 &nbsp;|&nbsp; WebRTC: http://&lt;ip&gt;:8889/drone0
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STREAMS -->
+    <div id="tab-streams" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M1 6s2-2 5-2 5 2 5 2M1 12s2-2 5-2 5 2 5 2M1 18s2-2 5-2 5 2 5 2"/></svg>Video Stream Endpoints</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Stream Destinations <span style="color:var(--text3);font-size:12px;font-weight:400;margin-left:8px">6 configurable</span></div>
+          <button class="btn pri" onclick="saveStreams()">💾 Save &amp; Apply</button>
+        </div>
+        <div id="stream-eps"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">MediaMTX Status</div><button class="btn sm" onclick="refreshMTX()">↻</button></div>
+        <div id="mtx-status" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2)">Click refresh...</div>
+      </div>
+    </div>
+
+    <!-- ZEROTIER -->
+    <div id="tab-zerotier" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 1 11.4 0"/><path d="M17.7 17.7a8 8 0 0 1-11.4 0"/></svg>ZeroTier</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Network Management</div></div>
+          <div class="fg"><label class="lbl">Network ID</label>
+            <div class="igrp"><input type="text" id="zt-nid" placeholder="8056c2e21c000001" maxlength="16"/><button class="btn suc" onclick="ztJoin()">Join</button><button class="btn dan" onclick="ztLeave()">Leave</button></div>
+          </div>
+          <div class="fg" style="margin-top:10px"><label class="lbl">Status</label><div class="logv" style="height:120px" id="zt-log">Click refresh...</div></div>
+          <button class="btn sm" onclick="ztRefresh()">↻ Refresh</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Service Control</div></div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Creates a P2P encrypted virtual network. Join any network to get a virtual IP accessible over the internet without port forwarding.</p>
+          <div style="display:flex;gap:8px">
+            <button class="btn suc" onclick="svcSet('zerotier',true)">Start</button>
+            <button class="btn dan" onclick="svcSet('zerotier',false)">Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAILSCALE -->
+    <div id="tab-tailscale" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Tailscale VPN</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Connect</div></div>
+          <div class="fg"><label class="lbl">Auth Key (optional)</label><input type="password" id="ts-key" placeholder="tskey-auth-..."/></div>
+          <div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn suc" onclick="tsUp()">↑ Bring Up</button><button class="btn dan" onclick="svcSet('tailscale',false)">↓ Bring Down</button><button class="btn sm" onclick="tsStatus()">↻ Status</button></div>
+          <div class="fg"><label class="lbl">Status</label><div class="logv" style="height:120px" id="ts-log">Click Status...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">About</div></div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6">WireGuard-based mesh VPN. Your DronePI gets a stable Tailscale IP accessible from anywhere on your tailnet — no firewall port opening required.</p>
+          <div style="margin-top:14px;display:flex;gap:8px"><button class="btn suc" onclick="svcSet('tailscale',true)">Start Daemon</button><button class="btn dan" onclick="svcSet('tailscale',false)">Stop Daemon</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODEM -->
+    <div id="tab-modem" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>Modem Manager (LTE/5G)</div>
+      <div class="card"><div class="card-header"><div class="card-title">Detected Modems</div><button class="btn sm" onclick="listModems()">🔍 Scan</button></div><div class="logv" id="modem-log">Click Scan...</div></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">APN Config</div></div>
+          <div class="fg"><label class="lbl">APN</label><input type="text" id="m-apn" placeholder="internet"/></div>
+          <div class="fg"><label class="lbl">Username</label><input type="text" id="m-usr" placeholder="(blank if none)"/></div>
+          <div class="fg"><label class="lbl">Password</label><input type="password" id="m-pwd" placeholder="(blank if none)"/></div>
+          <div class="fg"><label class="lbl">Auth</label><select id="m-auth"><option>none</option><option>pap</option><option>chap</option></select></div>
+          <button class="btn pri" onclick="toast('APN saved','ok')">Save APN</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Signal &amp; Connection</div></div>
+          <div class="logv" id="modem-sig" style="height:140px">No data...</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn suc" onclick="toast('Connecting modem...','ok')">Connect</button>
+            <button class="btn dan" onclick="toast('Disconnecting modem...','ok')">Disconnect</button>
+            <button class="btn sm" onclick="toast('Signal: use mmcli -m 0 --signal-get','ok')">📶 Signal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAK -->
+    <div id="tab-tak" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>TAK Bridge</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Configuration</div></div>
+          <div class="grid-2">
+            <div class="fg"><label class="lbl">Callsign</label><input type="text" id="tak-cs" placeholder="DRONE-1"/></div>
+            <div class="fg"><label class="lbl">UID</label><input type="text" id="tak-uid" placeholder="DRONEPI-001"/></div>
+            <div class="fg"><label class="lbl">CoT Type</label><select id="tak-cot"><option>a-f-A-M-F-Q</option><option>a-f-G-U-C</option><option>a-h-A-M-F-Q</option><option>a-u-G</option></select></div>
+            <div class="fg"><label class="lbl">Stale (sec)</label><input type="number" id="tak-stale" value="30" min="5" max="300"/></div>
+          </div>
+          <div class="sep"></div>
+          <div class="grid-2">
+            <div class="fg"><label class="lbl">TAK Server IP</label><input type="text" id="tak-host" placeholder="239.2.3.1"/></div>
+            <div class="fg"><label class="lbl">Port</label><input type="number" id="tak-port" value="6969"/></div>
+          </div>
+          <div class="fg"><label class="lbl">Mode</label><select id="tak-mode"><option value="multicast">Multicast (239.2.3.1:6969)</option><option value="unicast">Unicast</option><option value="tcp">TCP</option></select></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn pri" onclick="toast('TAK config saved','ok')">💾 Save</button>
+            <button class="btn suc" onclick="svcSet('tak_bridge',true)">▶ Start</button>
+            <button class="btn dan" onclick="svcSet('tak_bridge',false)">■ Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Bridge Status</div></div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Converts MAVLink telemetry (GPS, attitude) into CoT XML for ATAK, WinTAK, and any TAK-compatible server.</p>
+          <div class="logv" id="tak-log">Not running...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEDIAMTX -->
+    <div id="tab-mediamtx" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>MediaMTX Configuration</div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Server Settings</div></div>
+          <div class="grid-2">
+            <div class="fg"><label class="lbl">Log Level</label>
+              <select id="mtx-loglevel">
+                <option value="error">error</option>
+                <option value="warn">warn</option>
+                <option value="info">info</option>
+                <option value="debug">debug</option>
+              </select>
+            </div>
+            <div class="fg"><label class="lbl">Log File</label>
+              <input type="text" id="mtx-logfile" value="/var/log/dronepi/mediamtx.log"/>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <p style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Protocol Ports</p>
+          <div class="grid-3">
+            <div class="fg"><label class="lbl">RTSP</label><input type="number" id="mtx-rtsp" min="1" max="65535"/></div>
+            <div class="fg"><label class="lbl">RTSPS</label><input type="number" id="mtx-rtsps" min="1" max="65535"/></div>
+            <div class="fg"><label class="lbl">RTMP</label><input type="number" id="mtx-rtmp" min="1" max="65535"/></div>
+            <div class="fg"><label class="lbl">HLS</label><input type="number" id="mtx-hls" min="1" max="65535"/></div>
+            <div class="fg"><label class="lbl">WebRTC</label><input type="number" id="mtx-webrtc" min="1" max="65535"/></div>
+            <div class="fg"><label class="lbl">SRT</label><input type="number" id="mtx-srt" min="1" max="65535"/></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Service Control</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="sdot" id="mtx-dot"></div>
+              <span id="mtx-svc-label" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2)">Unknown</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+            <button class="btn suc" onclick="svcSet('mediamtx',true)">&#9654; Start</button>
+            <button class="btn dan" onclick="svcSet('mediamtx',false)">&#9632; Stop</button>
+            <button class="btn sm" onclick="mtxRestart()">&#8635; Restart</button>
+            <button class="btn sm" onclick="mtxRefreshStatus()">&#9889; Status</button>
+          </div>
+          <div class="sep"></div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">Multi-protocol media server: RTSP, WebRTC, HLS, RTMP, SRT. Stream paths are published by GStreamer and consumed by ground-station clients.</p>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:4px">
+            <div>RTSP &nbsp;&rarr; <span id="mtx-info-rtsp" style="color:var(--accent)">:8554</span></div>
+            <div>HLS &nbsp;&nbsp;&rarr; <span id="mtx-info-hls" style="color:var(--accent)">:8888</span></div>
+            <div>WebRTC &rarr; <span id="mtx-info-webrtc" style="color:var(--accent)">:8889</span></div>
+            <div>SRT &nbsp;&nbsp;&rarr; <span id="mtx-info-srt" style="color:var(--accent)">:8890</span></div>
+            <div>RTMP &nbsp;&rarr; <span id="mtx-info-rtmp" style="color:var(--accent)">:1935</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Stream Paths</div>
+          <button class="btn sm" onclick="mtxAddPath()">+ Add Path</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1.8fr auto;gap:6px;padding:0 2px 8px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">
+          <span>Path Name</span><span>Source</span><span></span>
+        </div>
+        <div id="mtx-paths"></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">Source: <code style="color:var(--accent)">publisher</code> (GStreamer pushes), <code style="color:var(--accent)">rtsp://&lt;url&gt;</code> (pull from camera), <code style="color:var(--accent)">rpiCamera</code> (CSI direct)</p>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button class="btn pri" style="flex:1" onclick="mtxSave()">&#128190; Save &amp; Restart</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">MediaMTX Logs</div><button class="btn sm" onclick="mtxRefreshLogs()">&#8635; Refresh</button></div>
+        <div class="logv" id="mtx-log" style="height:260px">Click Refresh...</div>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div id="tab-logs" class="tab-panel">
+      <div class="page-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>System Logs</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Log Viewer</div>
+          <div style="display:flex;gap:8px">
+            <select id="log-svc"><option value="dronepi-web">DronePI Web</option><option value="mavlink-router">MAVLink Router</option><option value="mediamtx">MediaMTX</option><option value="tak-bridge">TAK Bridge</option><option value="zerotier-one">ZeroTier</option><option value="tailscaled">Tailscale</option><option value="ModemManager">ModemManager</option></select>
+            <button class="btn pri" onclick="fetchLogs()">Load</button>
+            <button class="btn sm" onclick="document.getElementById('main-logv').innerHTML=''">Clear</button>
+          </div>
+        </div>
+        <div class="logv" id="main-logv" style="height:420px">Select service and click Load...</div>
+      </div>
+    </div>
+
+    <!-- TERMINAL (special: flex column, fills height) -->
+    <div id="tab-terminal" class="tab-panel" style="padding:0;margin:0;height:100%;display:none;flex-direction:column">
+    </div>
+
+  </main><!-- /.main -->
+</div><!-- /.app-body -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────
+const S = { config: null, services: {}, ws: null, term: null, termWs: null, termFit: null, previewPc: null, previewConnected: false, previewAutoConnect: false, statusPollTimer: null };
+
+const PLUGINS = [
+  { key:'mavlink_router', name:'MAVLink Router', svc:'mavlink-router', icon:'📡',
+    desc:'Routes MAVLink telemetry between serial ports and up to 6 UDP/TCP GCS endpoints.' },
+  { key:'zerotier', name:'ZeroTier', svc:'zerotier-one', icon:'🌐',
+    desc:'P2P encrypted virtual network. Works over the internet without port forwarding.' },
+  { key:'tailscale', name:'Tailscale', svc:'tailscaled', icon:'🛡️',
+    desc:'WireGuard mesh VPN. Secure remote access from anywhere on your tailnet.' },
+  { key:'modem_manager', name:'ModemManager', svc:'ModemManager', icon:'📶',
+    desc:'LTE/5G cellular modem management. Mobile data fallback connectivity.' },
+  { key:'gstreamer', name:'GStreamer', svc:'dronepi-gstreamer', icon:'🎬',
+    desc:'Video pipeline engine. Captures, encodes, and streams H.264/H.265 video.' },
+  { key:'mediamtx', name:'MediaMTX', svc:'mediamtx', icon:'📺',
+    desc:'RTSP/WebRTC/HLS/RTMP server. Accepts GStreamer output and serves to clients.' },
+  { key:'tak_bridge', name:'TAK Bridge', svc:'tak-bridge', icon:'🎯',
+    desc:'Converts MAVLink GPS/telemetry to CoT XML for ATAK/WinTAK integration.' },
+];
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  renderPlugins();
+  renderTelemEPs();
+  renderStreamEPs();
+  refreshStatus();
+  refreshNet();
+  connectStatsWS();
+  updPipe();
+  detectDevices();
+  renderDashLists();
+  startStatusPoll();
+});
+
+// ─── Navigation ───────────────────────────────────────────────────────────
+function showTab(el, name) {
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.display = 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const panel = document.getElementById('tab-' + name);
+  panel.classList.add('active');
+  el.classList.add('active');
+
+  const ms = document.getElementById('main-scroll');
+
+  if (name === 'terminal') {
+    // Terminal needs to fill the entire main area
+    ms.style.padding = '0';
+    ms.style.overflow = 'hidden';
+    panel.style.display = 'flex';
+    panel.style.height = '100%';
+    initTerminal();
+  } else if (name === 'mediamtx') {
+    ms.style.padding = '24px';
+    ms.style.overflow = 'auto';
+    panel.style.display = 'block';
+    loadMtxConfig();
+    mtxRefreshStatus();
+  } else {
+    ms.style.padding = '24px';
+    ms.style.overflow = 'auto';
+    panel.style.display = 'block';
+  }
+}
+
+// ─── Stats WS ─────────────────────────────────────────────────────────────
+function connectStatsWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/stats`);
+  S.ws = ws;
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    const load = parseFloat(d.load);
+    document.getElementById('d-cpu').textContent = (load * 25).toFixed(0) + '%';
+    document.getElementById('d-mem').textContent = d.memUsed + ' MB';
+    document.getElementById('d-tmp').textContent = (d.temp||'--') + '°C';
+    document.getElementById('d-uptime').textContent = fmtUptime(d.uptime);
+    document.getElementById('hdr-cpu').textContent = 'CPU ' + load.toFixed(2);
+    document.getElementById('hdr-mem').textContent = 'MEM ' + d.memUsed + 'M';
+    document.getElementById('hdr-tmp').textContent = 'TEMP ' + (d.temp||'--') + '°C';
+    document.getElementById('hdr-conn').textContent = 'ONLINE';
+    document.getElementById('dot-conn').className = 'dot';
+    const t = parseFloat(d.temp);
+    document.getElementById('dot-tmp').className = 'dot' + (t>75?' hot':t>60?' warn':'');
+  };
+  ws.onclose = () => {
+    document.getElementById('hdr-conn').textContent = 'OFFLINE';
+    document.getElementById('dot-conn').className = 'dot off';
+    setTimeout(connectStatsWS, 3000);
+  };
+}
+function fmtUptime(s) { return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`; }
+
+// ─── Config ───────────────────────────────────────────────────────────────
+async function loadConfig() {
+  try { const r = await fetch('/api/config'); S.config = await r.json(); } catch { S.config = {}; }
+}
+
+// ─── Plugins ──────────────────────────────────────────────────────────────
+function renderPlugins() {
+  const g = document.getElementById('plugin-grid'); g.innerHTML = '';
+  PLUGINS.forEach(p => {
+    const on = !!S.services[p.key];
+    const d = document.createElement('div');
+    d.className = 'plugin-card' + (on?' on':'');
+    d.id = 'pc-' + p.key;
+    d.innerHTML = `
+      <div class="plugin-header">
+        <div class="plugin-name">${p.icon} ${p.name}</div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-${p.key}" ${on?'checked':''} onchange="togglePlugin('${p.key}',this.checked)">
+          <div class="ttrack"></div><div class="tthumb"></div>
+        </label>
+      </div>
+      <div class="plugin-desc">${p.desc}</div>
+      <div class="plugin-status">
+        <span class="sdot ${on?'run':'stop'}"></span>
+        <span id="sl-${p.key}">${on?'Running':'Stopped'}</span>
+      </div>`;
+    g.appendChild(d);
+  });
+}
+
+async function togglePlugin(key, enabled) {
+  const r = await fetch(`/api/services/${key}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ enabled })
+  });
+  const d = await r.json();
+  if (d.ok) {
+    S.services[key] = enabled;
+    updPluginCard(key, enabled);
+    toast(enabled ? `${key} started` : `${key} stopped`, 'ok');
+  } else {
+    toast('Error: ' + (d.error||'unknown'), 'err');
+    document.getElementById('tog-'+key).checked = !enabled;
+  }
+  updBadges();
+}
+
+function updPluginCard(key, on) {
+  const c = document.getElementById('pc-'+key); if (!c) return;
+  c.className = 'plugin-card' + (on?' on':'');
+  c.querySelector('.sdot').className = 'sdot ' + (on?'run':'stop');
+  document.getElementById('sl-'+key).textContent = on?'Running':'Stopped';
+}
+
+async function refreshStatus() {
+  try { const r = await fetch('/api/services'); S.services = await r.json(); } catch {}
+  renderSvcDash();
+  PLUGINS.forEach(p => {
+    const chk = document.getElementById('tog-'+p.key);
+    if (chk) chk.checked = !!S.services[p.key];
+    updPluginCard(p.key, !!S.services[p.key]);
+  });
+  updBadges();
+}
+
+function renderSvcDash() {
+  const g = document.getElementById('svc-dash-grid'); if (!g) return;
+  g.innerHTML = '';
+  PLUGINS.forEach(p => {
+    const on = !!S.services[p.key];
+    g.innerHTML += `<div style="background:var(--bg3);border:1px solid ${on?'rgba(0,212,255,.2)':'var(--border2)'};border-radius:6px;padding:10px;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:13px;font-weight:600">${p.name}</div><div style="font-size:11px;color:var(--text3)">${p.svc}</div></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-family:'Share Tech Mono',monospace;color:${on?'var(--green)':'var(--red)'}">
+        <span class="sdot ${on?'run':'stop'}"></span>${on?'RUNNING':'STOPPED'}
+      </div></div>`;
+  });
+}
+
+function svcSet(key, en) { const c = document.getElementById('tog-'+key); if(c) c.checked=en; togglePlugin(key,en); }
+function updBadges() {
+  const a = PLUGINS.filter(p => S.services[p.key]).length;
+  const b = document.getElementById('nb-plugins');
+  if (b) { b.textContent=a; b.className='nav-badge'+(a>0?' g':''); }
+}
+
+// ─── Telemetry endpoints ──────────────────────────────────────────────────
+function renderTelemEPs() {
+  const eps = S.config?.telemetry_endpoints || [];
+  const c = document.getElementById('telem-eps');
+  c.innerHTML = `<div style="display:grid;grid-template-columns:28px 1fr 90px 160px 80px 60px;gap:8px;padding:4px 12px;margin-bottom:4px">
+    <span style="font-size:10px;color:var(--text3)">#</span>
+    <span style="font-size:10px;color:var(--text3)">NAME</span>
+    <span style="font-size:10px;color:var(--text3)">PROTOCOL</span>
+    <span style="font-size:10px;color:var(--text3)">ADDRESS</span>
+    <span style="font-size:10px;color:var(--text3)">PORT</span>
+    <span style="font-size:10px;color:var(--text3)">ACTIVE</span></div>`;
+  eps.forEach((ep, i) => {
+    const r = document.createElement('div');
+    r.className = 'eprow' + (ep.enabled?' on':'');
+    r.id = 'tr-'+i;
+    r.style.gridTemplateColumns = '28px 1fr 90px 160px 80px 60px';
+    r.innerHTML = `
+      <div class="epn">${ep.id}</div>
+      <input type="text" value="${ep.name}" oninput="updEP('t',${i},'name',this.value)"/>
+      <select onchange="updEP('t',${i},'protocol',this.value)">
+        <option ${ep.protocol==='udp'?'selected':''}>udp</option>
+        <option ${ep.protocol==='tcp'?'selected':''}>tcp</option>
+      </select>
+      <input type="text" value="${ep.address}" oninput="updEP('t',${i},'address',this.value)"/>
+      <input type="number" value="${ep.port}" min="1024" max="65535" oninput="updEP('t',${i},'port',parseInt(this.value))"/>
+      <label class="toggle"><input type="checkbox" ${ep.enabled?'checked':''} onchange="updEP('t',${i},'enabled',this.checked)"><div class="ttrack"></div><div class="tthumb"></div></label>`;
+    c.appendChild(r);
+  });
+}
+
+function updEP(type, i, field, val) {
+  if (type==='t') { S.config.telemetry_endpoints[i][field]=val; const r=document.getElementById('tr-'+i); if(r) r.className='eprow'+(field==='enabled'&&val?' on':''); }
+  else            { S.config.video_endpoints[i][field]=val;     const r=document.getElementById('sr-'+i); if(r) r.className='eprow'+(field==='enabled'&&val?' on':''); }
+}
+
+async function saveTelemetry() {
+  await fetch('/api/telemetry', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(S.config.telemetry_endpoints) });
+  toast('Telemetry saved & MAVLink config regenerated', 'ok');
+  renderTelemEPs();
+  renderDashLists();
+}
+
+// ─── Stream endpoints ─────────────────────────────────────────────────────
+function renderStreamEPs() {
+  const eps = S.config?.video_endpoints || [];
+  const c = document.getElementById('stream-eps');
+  c.innerHTML = `<div style="display:grid;grid-template-columns:28px 1fr 90px 160px 70px 100px 60px;gap:8px;padding:4px 12px;margin-bottom:4px">
+    <span style="font-size:10px;color:var(--text3)">#</span>
+    <span style="font-size:10px;color:var(--text3)">NAME</span>
+    <span style="font-size:10px;color:var(--text3)">PROTOCOL</span>
+    <span style="font-size:10px;color:var(--text3)">ADDRESS</span>
+    <span style="font-size:10px;color:var(--text3)">PORT</span>
+    <span style="font-size:10px;color:var(--text3)">PATH</span>
+    <span style="font-size:10px;color:var(--text3)">ACTIVE</span></div>`;
+  eps.forEach((ep, i) => {
+    const r = document.createElement('div');
+    r.className = 'eprow'+(ep.enabled?' on':'');
+    r.id = 'sr-'+i;
+    r.style.gridTemplateColumns = '28px 1fr 90px 160px 70px 100px 60px';
+    r.innerHTML = `
+      <div class="epn">${ep.id}</div>
+      <input type="text" value="${ep.name}" oninput="updEP('s',${i},'name',this.value)"/>
+      <select onchange="updEP('s',${i},'protocol',this.value)">
+        ${['rtsp','rtmp','hls','webrtc','udp','srt'].map(p=>`<option ${ep.protocol===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <input type="text" value="${ep.address}" oninput="updEP('s',${i},'address',this.value)"/>
+      <input type="number" value="${ep.port}" oninput="updEP('s',${i},'port',parseInt(this.value))"/>
+      <input type="text" value="${ep.path||''}" placeholder="/drone0" oninput="updEP('s',${i},'path',this.value)"/>
+      <label class="toggle"><input type="checkbox" ${ep.enabled?'checked':''} onchange="updEP('s',${i},'enabled',this.checked)"><div class="ttrack"></div><div class="tthumb"></div></label>`;
+    c.appendChild(r);
+  });
+}
+
+async function saveStreams() {
+  await fetch('/api/video/endpoints', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(S.config.video_endpoints) });
+  toast('Streams saved & pipeline restarting', 'ok');
+  renderStreamEPs();
+  renderDashLists();
+}
+
+async function refreshMTX() {
+  try {
+    const r = await fetch('/api/video/status');
+    const d = await r.json();
+    const el = document.getElementById('mtx-status');
+    const mtxState = d.mediamtx_active ? `● Active (uptime: ${d.uptime||'—'})` : '○ Inactive';
+    const ffState = d.ffmpeg_running ? `● Running (PID ${d.ffmpeg_pid})` : '○ Stopped';
+    const pathState = d.publishing_path || 'None';
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px">` +
+      `<div>MediaMTX: <span style="color:${d.mediamtx_active?'var(--green)':'var(--red)'}">${mtxState}</span></div>` +
+      `<div>FFmpeg:   <span style="color:${d.ffmpeg_running?'var(--green)':'var(--red)'}">${ffState}</span></div>` +
+      `<div>Path:     <span style="color:var(--accent)">${pathState}</span></div></div>`;
+  } catch(e) {
+    document.getElementById('mtx-status').textContent = 'Error fetching status: ' + e.message;
+  }
+}
+
+// ─── Network ──────────────────────────────────────────────────────────────
+async function refreshNet() {
+  try {
+    const r = await fetch('/api/system/network');
+    const ifaces = await r.json();
+    const tb = document.getElementById('net-tbody'); tb.innerHTML = '';
+    for (const [n, addrs] of Object.entries(ifaces)) {
+      addrs.forEach(a => {
+        const type = n.startsWith('zt') ? '<span class="bdg bdg-udp">ZeroTier</span>' :
+                     n.startsWith('tailscale') ? '<span class="bdg bdg-hls">Tailscale</span>' :
+                     n.startsWith('ww') ? '<span class="bdg bdg-webrtc">LTE</span>' :
+                     '<span class="bdg bdg-udp">Local</span>';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${n}</td><td>${a.address}</td><td>${a.mac||'—'}</td><td>${type}</td><td><span style="color:var(--green)">↑ UP</span></td>`;
+        tb.appendChild(tr);
+      });
+    }
+  } catch {}
+}
+
+function applyHostname() {
+  const h = document.getElementById('hn-input').value;
+  if (h) { document.getElementById('mdns-lbl').textContent = h+'.local'; toast('Hostname set (reboot for full effect)','ok'); }
+}
+
+// ─── Video ────────────────────────────────────────────────────────────────
+async function detectDevices() {
+  try {
+    const r = await fetch('/api/video/devices');
+    const devs = await r.json();
+    const sel = document.getElementById('vdev');
+    sel.innerHTML = devs.map(d=>`<option value="${d.path}">${d.name} (${d.path})</option>`).join('');
+  } catch {}
+}
+
+function updPipe() {
+  const src    = document.getElementById('vsrc').value;
+  const dev    = document.getElementById('vdev')?.value || '/dev/video0';
+  const res    = document.getElementById('vres').value;
+  const [w,h]  = res.split('x');
+  const fps    = document.getElementById('vfps').value;
+  const codec  = document.getElementById('vcodec').value;
+  const br     = document.getElementById('vbr').value;
+  const sink   = document.getElementById('vsink').value;
+  const rurl   = document.getElementById('vrtsp-url')?.value||'';
+  const gop    = parseInt(fps) * 2;
+
+  document.getElementById('vdev-row').style.display   = ['csi','usb'].includes(src)?'':'none';
+  document.getElementById('vrtsp-row').style.display  = src==='rtsp_in'?'':'none';
+  document.getElementById('vcustom-row').style.display= src==='custom'?'':'none';
+
+  if (src==='custom') { document.getElementById('pipe-prev').textContent = document.getElementById('vcustom').value||'(empty)'; return; }
+
+  let pipe = '';
+  const isH265 = codec === 'h265';
+  const codecFlag = isH265 ? 'libx265' : 'libx264';
+  const profileOpts = isH265 ? '' : ' -profile:v baseline -level 3.1';
+
+  const encOpts = `-pix_fmt yuv420p -c:v ${codecFlag} -preset ultrafast -tune zerolatency${profileOpts} -b:v ${br}k -g ${gop} -f rtsp rtsp://localhost:8554/drone0`;
+  if (src==='usb') {
+    pipe = `ffmpeg -f v4l2 -input_format mjpeg -video_size ${w}x${h} -framerate ${fps} -i ${dev} ${encOpts}`;
+  } else if (src==='csi') {
+    pipe = `ffmpeg -f v4l2 -video_size ${w}x${h} -framerate ${fps} -i ${dev} ${encOpts}`;
+  } else if (src==='test') {
+    pipe = `ffmpeg -f lavfi -i testsrc=size=${w}x${h}:rate=${fps} ${encOpts}`;
+  } else if (src==='rtsp_in') {
+    pipe = `ffmpeg -rtsp_transport tcp -i ${rurl} -c:v copy -f rtsp rtsp://localhost:8554/drone0`;
+  }
+
+  document.getElementById('pipe-prev').textContent = pipe.trim();
+}
+
+async function startPipeline() {
+  const video = {
+    source_type: document.getElementById('vsrc').value,
+    device: document.getElementById('vdev')?.value || '/dev/video0',
+    width: parseInt(document.getElementById('vres').value.split('x')[0]),
+    height: parseInt(document.getElementById('vres').value.split('x')[1]),
+    fps: parseInt(document.getElementById('vfps').value),
+    bitrate: parseInt(document.getElementById('vbr').value),
+    codec: document.getElementById('vcodec').value,
+    pipeline_custom: document.getElementById(document.getElementById('vsrc').value === 'rtsp_in' ? 'vrtsp-url' : 'vcustom')?.value || '',
+  };
+  await fetch('/api/video/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(video) });
+  const r = await fetch('/api/video/apply', { method:'POST' });
+  const d = await r.json();
+  if (d.ok) { toast('Pipeline applied & starting','ok'); startStatusPoll(); }
+  else toast('Error: '+(d.error||'unknown'),'err');
+}
+async function stopPipeline() {
+  await fetch('/api/services/mediamtx', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:false}) });
+  toast('Pipeline stopped','ok');
+  disconnectPreview();
+  updatePipelineStatus({ mediamtx_active:false, ffmpeg_running:false, ffmpeg_pid:null, publishing_path:null, uptime:null });
+}
+
+// ─── WebRTC Preview (iframe to MediaMTX built-in viewer) ─────────────────
+function connectPreviewBtn() {
+  const iframe = document.getElementById('prev-iframe');
+  const prevDot = document.getElementById('prev-dot');
+  const prevStatus = document.getElementById('prev-status');
+  iframe.src = `http://${window.location.hostname}:8889/drone0/`;
+  iframe.style.display = 'block';
+  document.getElementById('vph').style.display = 'none';
+  document.getElementById('vov').classList.add('vis');
+  prevDot.className = 'sdot run';
+  prevStatus.textContent = 'Connected';
+  prevStatus.style.color = 'var(--green)';
+  S.previewConnected = true;
+}
+function disconnectPreview() {
+  const iframe = document.getElementById('prev-iframe');
+  iframe.src = '';
+  iframe.style.display = 'none';
+  S.previewConnected = false;
+  document.getElementById('vph').style.display = '';
+  document.getElementById('vov').classList.remove('vis');
+  document.getElementById('prev-dot').className = 'sdot stop';
+  const ps = document.getElementById('prev-status');
+  ps.textContent = 'Disconnected';
+  ps.style.color = 'var(--text3)';
+}
+
+// ─── Pipeline Status Polling ─────────────────────────────────────────────
+function updatePipelineStatus(d) {
+  const mtxDot = document.getElementById('ps-mtx');
+  const mtxLbl = document.getElementById('ps-mtx-label');
+  const ffDot = document.getElementById('ps-ffmpeg');
+  const ffLbl = document.getElementById('ps-ffmpeg-label');
+  const pathLbl = document.getElementById('ps-path');
+  mtxDot.className = 'sdot ' + (d.mediamtx_active ? 'run' : 'stop');
+  mtxLbl.textContent = d.mediamtx_active ? 'Active' + (d.uptime ? ' ('+d.uptime+')' : '') : 'Inactive';
+  mtxLbl.style.color = d.mediamtx_active ? 'var(--green)' : 'var(--red)';
+  ffDot.className = 'sdot ' + (d.ffmpeg_running ? 'run' : 'stop');
+  ffLbl.textContent = d.ffmpeg_running ? 'Running (PID '+d.ffmpeg_pid+')' : 'Stopped';
+  ffLbl.style.color = d.ffmpeg_running ? 'var(--green)' : 'var(--red)';
+  pathLbl.textContent = d.publishing_path || '—';
+  pathLbl.style.color = d.publishing_path ? 'var(--accent)' : 'var(--text3)';
+}
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/video/status');
+    const d = await r.json();
+    updatePipelineStatus(d);
+    // Auto-connect disabled to prevent session floods - user clicks Connect manually
+  } catch {}
+}
+function startStatusPoll() {
+  if (S.statusPollTimer) return;
+  pollStatus();
+  S.statusPollTimer = setInterval(pollStatus, 3000);
+}
+function stopStatusPoll() {
+  if (S.statusPollTimer) { clearInterval(S.statusPollTimer); S.statusPollTimer = null; }
+}
+
+// ─── ZeroTier ─────────────────────────────────────────────────────────────
+async function ztJoin() {
+  const id=document.getElementById('zt-nid').value.trim(); if(!id) return toast('Enter network ID','err');
+  const r=await fetch('/api/zerotier/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({network_id:id})});
+  const d=await r.json(); document.getElementById('zt-log').textContent=d.output||d.error;
+  toast(d.ok?'Joined ZeroTier network':'Join failed', d.ok?'ok':'err');
+}
+async function ztLeave() {
+  const id=document.getElementById('zt-nid').value.trim(); if(!id) return;
+  const r=await fetch('/api/zerotier/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({network_id:id})});
+  const d=await r.json(); document.getElementById('zt-log').textContent=d.output||d.error;
+}
+async function ztRefresh() {
+  const r=await fetch('/api/zerotier/status'); const d=await r.json();
+  document.getElementById('zt-log').textContent=d.output;
+}
+
+// ─── Tailscale ────────────────────────────────────────────────────────────
+async function tsUp() {
+  const key=document.getElementById('ts-key').value.trim();
+  const r=await fetch('/api/tailscale/up',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auth_key:key||undefined})});
+  const d=await r.json(); document.getElementById('ts-log').textContent=d.output||d.error;
+  toast(d.ok?'Tailscale up':'Error',d.ok?'ok':'err');
+}
+async function tsStatus() {
+  const r=await fetch('/api/tailscale/status'); const d=await r.json();
+  document.getElementById('ts-log').textContent=d.output;
+}
+
+// ─── Modem ────────────────────────────────────────────────────────────────
+async function listModems() {
+  const r=await fetch('/api/modem/list'); const d=await r.json();
+  document.getElementById('modem-log').textContent=d.output;
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────
+async function fetchLogs() {
+  const svc=document.getElementById('log-svc').value;
+  const r=await fetch('/api/logs/'+svc); const d=await r.json();
+  const v=document.getElementById('main-logv'); v.innerHTML='';
+  d.lines.forEach(line => {
+    const el=document.createElement('div');
+    el.className = line.match(/error|Error|ERRO/)?'le':line.match(/warn|Warn|WARN/)?'lw':line.match(/start|OK|active/)?'lo':'';
+    el.textContent=line; v.appendChild(el);
+  });
+  v.scrollTop=v.scrollHeight;
+}
+
+// ─── Dashboard lists ──────────────────────────────────────────────────────
+function renderDashLists() {
+  if (!S.config) { setTimeout(renderDashLists,500); return; }
+  const tl=document.getElementById('dash-telem'), sl=document.getElementById('dash-streams');
+  const te=(S.config.telemetry_endpoints||[]).filter(e=>e.enabled);
+  tl.innerHTML=te.length?te.map(e=>`<div style="padding:6px 0;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between"><span>${e.name}</span><span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)">${e.protocol.toUpperCase()} ${e.address}:${e.port}</span></div>`).join(''):'<span style="color:var(--text3)">No active endpoints</span>';
+  const se=(S.config.video_endpoints||[]).filter(e=>e.enabled);
+  sl.innerHTML=se.length?se.map(e=>`<div style="padding:6px 0;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between"><span>${e.name}</span><span class="bdg bdg-${e.protocol}">${e.protocol.toUpperCase()} :${e.port}${e.path||''}</span></div>`).join(''):'<span style="color:var(--text3)">No active streams</span>';
+}
+
+// ─── TERMINAL ─────────────────────────────────────────────────────────────
+function initTerminal() {
+  const panel = document.getElementById('tab-terminal');
+
+  // Build the terminal UI if not already there
+  if (!document.getElementById('terminal-container')) {
+    panel.innerHTML = `
+      <div class="term-toolbar">
+        <div style="display:flex;gap:6px;align-items:center">
+          <div class="term-dot td-red"></div>
+          <div class="term-dot td-yel"></div>
+          <div class="term-dot td-grn"></div>
+        </div>
+        <div class="term-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Terminal — dronepi
+        </div>
+        <div style="display:flex;gap:8px;margin-left:16px">
+          <button class="btn sm" onclick="termClear()">Clear</button>
+          <button class="btn sm" onclick="termReconnect()">↻ Reconnect</button>
+          <button class="btn sm" onclick="termRunCmd('htop')">htop</button>
+          <button class="btn sm" onclick="termRunCmd('systemctl status')">svc status</button>
+          <button class="btn sm" onclick="termRunCmd('journalctl -f')">tail logs</button>
+          <button class="btn sm" onclick="termRunCmd('df -h && free -h')">disk/mem</button>
+        </div>
+        <span class="term-status disc" id="term-status-label">● Disconnected</span>
+      </div>
+      <div class="term-wrap">
+        <div id="terminal-container"></div>
+      </div>`;
+  }
+
+  // Init xterm only once
+  if (S.term) {
+    S.termFit && S.termFit.fit();
+    return;
+  }
+
+  if (typeof Terminal === 'undefined') {
+    document.getElementById('terminal-container').innerHTML =
+      '<div style="color:var(--yellow);font-family:monospace;padding:20px">xterm.js not loaded — check internet connection</div>';
+    return;
+  }
+
+  const term = new Terminal({
+    cursorBlink: true,
+    cursorStyle: 'block',
+    fontSize: 13,
+    fontFamily: '"Share Tech Mono", "Fira Code", "Cascadia Code", monospace',
+    theme: {
+      background:    '#0a0e12',
+      foreground:    '#e6edf3',
+      cursor:        '#00d4ff',
+      cursorAccent:  '#0a0e12',
+      black:         '#1c2330',
+      red:           '#f85149',
+      green:         '#3fb950',
+      yellow:        '#d29922',
+      blue:          '#0099cc',
+      magenta:       '#bc8cff',
+      cyan:          '#00d4ff',
+      white:         '#b1bac4',
+      brightBlack:   '#484f58',
+      brightRed:     '#ff7b72',
+      brightGreen:   '#56d364',
+      brightYellow:  '#e3b341',
+      brightBlue:    '#79c0ff',
+      brightMagenta: '#d2a8ff',
+      brightCyan:    '#39c5cf',
+      brightWhite:   '#ffffff',
+      selectionBackground: 'rgba(0,212,255,0.2)',
+    },
+    scrollback: 5000,
+    allowTransparency: true,
+  });
+
+  const fitAddon = new FitAddon.FitAddon();
+  const linkAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(linkAddon);
+  term.open(document.getElementById('terminal-container'));
+  fitAddon.fit();
+  S.term = term;
+  S.termFit = fitAddon;
+
+  // Resize observer
+  const ro = new ResizeObserver(() => { try { fitAddon.fit(); sendResize(); } catch{} });
+  ro.observe(document.getElementById('terminal-container'));
+
+  connectTermWS();
+
+  term.onData(data => {
+    if (S.termWs && S.termWs.readyState === WebSocket.OPEN) {
+      S.termWs.send(JSON.stringify({ type: 'data', data }));
+    }
+  });
+
+  term.onResize(({ cols, rows }) => sendResize(cols, rows));
+}
+
+function connectTermWS() {
+  const lbl = document.getElementById('term-status-label');
+  const termBadge = document.getElementById('nb-term');
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/terminal`);
+  S.termWs = ws;
+
+  ws.onopen = () => {
+    if (lbl) { lbl.textContent = '● Connected'; lbl.className = 'term-status conn'; }
+    if (termBadge) { termBadge.style.display = 'inline-block'; termBadge.textContent = 'LIVE'; termBadge.className = 'nav-badge g'; }
+    sendResize();
+  };
+
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'data' && S.term) S.term.write(m.data);
+    else if (m.type === 'ready' && S.term) {
+      S.term.writeln('\x1b[36m╔══════════════════════════════════════════╗\x1b[0m');
+      S.term.writeln('\x1b[36m║    DronePI5 — System Terminal             ║\x1b[0m');
+      S.term.writeln('\x1b[36m╚══════════════════════════════════════════╝\x1b[0m');
+      S.term.writeln('');
+    }
+    else if (m.type === 'exit' && S.term) S.term.writeln('\r\n\x1b[33m[Session ended]\x1b[0m');
+  };
+
+  ws.onclose = () => {
+    if (lbl) { lbl.textContent = '● Disconnected'; lbl.className = 'term-status disc'; }
+    if (termBadge) { termBadge.style.display = 'none'; }
+    if (S.term) S.term.writeln('\r\n\x1b[31m[Disconnected — click Reconnect to restore session]\x1b[0m');
+  };
+
+  ws.onerror = () => { if (S.term) S.term.writeln('\r\n\x1b[31m[WebSocket error]\x1b[0m'); };
+}
+
+function sendResize(cols, rows) {
+  if (!S.termWs || S.termWs.readyState !== WebSocket.OPEN) return;
+  const c = cols || (S.term && S.term.cols) || 120;
+  const r = rows || (S.term && S.term.rows) || 40;
+  S.termWs.send(JSON.stringify({ type:'resize', cols:c, rows:r }));
+}
+
+function termClear() { if (S.term) S.term.clear(); }
+
+function termReconnect() {
+  if (S.termWs) { try { S.termWs.close(); } catch{} }
+  if (S.term) S.term.writeln('\r\n\x1b[33m[Reconnecting...]\x1b[0m');
+  setTimeout(connectTermWS, 400);
+}
+
+function termRunCmd(cmd) {
+  if (!S.termWs || S.termWs.readyState !== WebSocket.OPEN) {
+    toast('Terminal not connected', 'err'); return;
+  }
+  S.termWs.send(JSON.stringify({ type:'data', data: cmd + '\r' }));
+  // Switch to terminal tab
+  const termItem = document.querySelector('[data-tab="terminal"]');
+  if (termItem) showTab(termItem, 'terminal');
+}
+
+// ─── MEDIAMTX ─────────────────────────────────────────────────────────────
+let mtxCfg = {};
+
+async function loadMtxConfig() {
+  try {
+    const r = await fetch('/api/mediamtx/config');
+    mtxCfg = await r.json();
+    applyMtxConfig(mtxCfg);
+  } catch(e) { toast('MediaMTX config load failed', 'err'); }
+}
+
+function applyMtxConfig(c) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('mtx-loglevel', c.logLevel || 'info');
+  set('mtx-logfile',  c.logFile  || '/var/log/dronepi/mediamtx.log');
+  set('mtx-rtsp',   c.rtspPort   || '8554');
+  set('mtx-rtsps',  c.rtspsPort  || '8322');
+  set('mtx-rtmp',   c.rtmpPort   || '1935');
+  set('mtx-hls',    c.hlsPort    || '8888');
+  set('mtx-webrtc', c.webrtcPort || '8889');
+  set('mtx-srt',    c.srtPort    || '8890');
+  const infoMap = { 'mtx-info-rtsp': c.rtspPort, 'mtx-info-hls': c.hlsPort,
+                    'mtx-info-webrtc': c.webrtcPort, 'mtx-info-srt': c.srtPort, 'mtx-info-rtmp': c.rtmpPort };
+  for (const [id, port] of Object.entries(infoMap)) {
+    const el = document.getElementById(id); if (el) el.textContent = ':' + (port || '');
+  }
+  renderMtxPaths(c.paths || []);
+}
+
+function renderMtxPaths(paths) {
+  const el = document.getElementById('mtx-paths');
+  if (!el) return;
+  if (!paths.length) {
+    el.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:4px 0">No paths. Click + Add Path.</p>';
+    return;
+  }
+  el.innerHTML = paths.map((p, i) => `
+    <div class="eprow" style="grid-template-columns:1fr 1.8fr auto;margin-bottom:6px">
+      <input type="text" value="${p.name}" placeholder="drone0"
+             onchange="mtxCfg.paths[${i}].name=this.value" style="font-size:12px"/>
+      <input type="text" value="${p.source}" placeholder="publisher"
+             onchange="mtxCfg.paths[${i}].source=this.value" style="font-size:12px"/>
+      <button class="btn dan sm" onclick="mtxRemovePath(${i})">&#10005;</button>
+    </div>`).join('');
+}
+
+function mtxAddPath() {
+  if (!mtxCfg.paths) mtxCfg.paths = [];
+  mtxCfg.paths.push({ name: 'drone' + mtxCfg.paths.length, source: 'publisher' });
+  renderMtxPaths(mtxCfg.paths);
+}
+
+function mtxRemovePath(i) {
+  if (!mtxCfg.paths) return;
+  mtxCfg.paths.splice(i, 1);
+  renderMtxPaths(mtxCfg.paths);
+}
+
+async function mtxSave() {
+  const get = id => document.getElementById(id)?.value?.trim();
+  const body = {
+    logLevel:   get('mtx-loglevel'),
+    logFile:    get('mtx-logfile'),
+    rtspPort:   get('mtx-rtsp'),
+    rtspsPort:  get('mtx-rtsps'),
+    rtmpPort:   get('mtx-rtmp'),
+    hlsPort:    get('mtx-hls'),
+    webrtcPort: get('mtx-webrtc'),
+    srtPort:    get('mtx-srt'),
+    paths:      mtxCfg.paths || [],
+  };
+  try {
+    const r = await fetch('/api/mediamtx/config', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (j.ok) { toast('Saved & restarted MediaMTX', 'ok'); mtxCfg = { ...mtxCfg, ...body }; setTimeout(mtxRefreshStatus, 1500); }
+    else toast('Save failed: ' + j.error, 'err');
+  } catch(e) { toast('Save error: ' + e.message, 'err'); }
+}
+
+async function mtxRestart() {
+  try {
+    await fetch('/api/services/mediamtx', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false }) });
+    await new Promise(r => setTimeout(r, 800));
+    await fetch('/api/services/mediamtx', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true }) });
+    toast('MediaMTX restarted', 'ok');
+    setTimeout(mtxRefreshStatus, 1200);
+  } catch { toast('Restart failed', 'err'); }
+}
+
+async function mtxRefreshStatus() {
+  try {
+    const r = await fetch('/api/mediamtx/status');
+    const j = await r.json();
+    const dot = document.getElementById('mtx-dot');
+    const lbl = document.getElementById('mtx-svc-label');
+    if (dot) dot.className = 'sdot ' + (j.active ? 'run' : 'stop');
+    if (lbl) lbl.textContent = j.active ? 'Running' : 'Stopped';
+  } catch {}
+}
+
+async function mtxRefreshLogs() {
+  try {
+    const r = await fetch('/api/mediamtx/status');
+    const j = await r.json();
+    const el = document.getElementById('mtx-log');
+    if (!el) return;
+    if (!j.logs || !j.logs.length) { el.textContent = 'No log entries.'; return; }
+    el.innerHTML = j.logs.map(l => {
+      const cls = /error/i.test(l) ? 'le' : /warn/i.test(l) ? 'lw' : /start|ready|listen/i.test(l) ? 'lo' : '';
+      return `<div class="${cls}">${l.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) { toast('Log fetch failed', 'err'); }
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = 'tmsg ' + type;
+  t.textContent = msg;
+  document.getElementById('toast').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+</body>
+</html>
