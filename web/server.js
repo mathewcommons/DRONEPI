@@ -304,10 +304,19 @@ except Exception as e:
     print(json.dumps({"error": str(e)}), flush=True)
     sys.exit(1)
 
+# Find the actual FC sysid (type != 6/GCS, sysid != 255)
+fc_sysid = None
+for _ in range(50):
+    hb = m.recv_match(type='HEARTBEAT', blocking=True, timeout=2)
+    if hb and hb.type != 6 and hb.get_srcSystem() not in (0, 255):
+        fc_sysid = hb.get_srcSystem()
+        break
+if fc_sysid is None:
+    fc_sysid = 1  # default to system 1
+
 types = ['HEARTBEAT','GLOBAL_POSITION_INT','ATTITUDE','SYS_STATUS','GPS_RAW_INT','VFR_HUD']
 last = 0
 data = {}
-fc_sysid = m.target_system  # lock to the FC that sent first heartbeat
 while True:
     msg = m.recv_match(type=types, blocking=True, timeout=2)
     if msg is None:
