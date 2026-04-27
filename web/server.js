@@ -550,6 +550,24 @@ async function regenerateMavlinkConfig(cfg) {
     try { fs.writeFileSync(`${CONFIG_DIR}/mavlink-router.conf`, lines.join('\n')); } catch {}
 }
 
+// ─── Routes: TAK Bridge Config ────────────────────────────────────────────
+const TAK_CONFIG_FILE = `${CONFIG_DIR}/tak_bridge.json`;
+
+app.get('/api/tak/config', (req, res) => {
+    try { res.json(JSON.parse(fs.readFileSync(TAK_CONFIG_FILE, 'utf8'))); }
+    catch { res.json({}); }
+});
+
+app.post('/api/tak/config', async (req, res) => {
+    try {
+        const existing = JSON.parse(fs.readFileSync(TAK_CONFIG_FILE, 'utf8').toString());
+        const merged = { ...existing, ...req.body };
+        fs.writeFileSync(TAK_CONFIG_FILE, JSON.stringify(merged, null, 2));
+        try { await execCmd('sudo /usr/bin/systemctl restart tak-bridge'); } catch {}
+        res.json({ ok: true });
+    } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ─── Catch-all → SPA ───────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 

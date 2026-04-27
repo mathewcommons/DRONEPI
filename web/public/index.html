@@ -568,7 +568,7 @@
           </div>
           <div class="fg"><label class="lbl">Mode</label><select id="tak-mode"><option value="multicast">Multicast (239.2.3.1:6969)</option><option value="unicast">Unicast</option><option value="tcp">TCP</option></select></div>
           <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="btn pri" onclick="toast('TAK config saved','ok')">💾 Save</button>
+            <button class="btn pri" onclick="saveTakConfig()">💾 Save</button>
             <button class="btn suc" onclick="svcSet('tak_bridge',true)">▶ Start</button>
             <button class="btn dan" onclick="svcSet('tak_bridge',false)">■ Stop</button>
           </div>
@@ -715,6 +715,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTelemEPs();
   renderStreamEPs();
   detectFC();
+  loadTakConfig();
   refreshStatus();
   setInterval(refreshStatus, 10000);
   refreshNet();
@@ -1162,6 +1163,40 @@ function startStatusPoll() {
 }
 function stopStatusPoll() {
   if (S.statusPollTimer) { clearInterval(S.statusPollTimer); S.statusPollTimer = null; }
+}
+
+// ─── TAK Bridge ──────────────────────────────────────────────────────────
+async function loadTakConfig() {
+  try {
+    const r = await fetch('/api/tak/config');
+    const cfg = await r.json();
+    if (cfg.callsign) document.getElementById('tak-cs').value = cfg.callsign;
+    if (cfg.uid) document.getElementById('tak-uid').value = cfg.uid;
+    if (cfg.cot_type) { const sel = document.getElementById('tak-cot'); for (const o of sel.options) { if (o.value === cfg.cot_type) o.selected = true; } }
+    if (cfg.stale_seconds) document.getElementById('tak-stale').value = cfg.stale_seconds;
+    if (cfg.tak_host) document.getElementById('tak-host').value = cfg.tak_host;
+    if (cfg.tak_port) document.getElementById('tak-port').value = cfg.tak_port;
+    if (cfg.multicast !== undefined) {
+      const sel = document.getElementById('tak-mode');
+      sel.value = cfg.multicast ? 'multicast' : 'unicast';
+    }
+  } catch {}
+}
+async function saveTakConfig() {
+  const cfg = {
+    callsign: document.getElementById('tak-cs').value || 'DRONE-1',
+    uid: document.getElementById('tak-uid').value || 'DRONEPI-001',
+    cot_type: document.getElementById('tak-cot').value,
+    stale_seconds: parseInt(document.getElementById('tak-stale').value) || 30,
+    tak_host: document.getElementById('tak-host').value || '239.2.3.1',
+    tak_port: parseInt(document.getElementById('tak-port').value) || 6969,
+    multicast: document.getElementById('tak-mode').value === 'multicast',
+    enabled: true,
+  };
+  const r = await fetch('/api/tak/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg) });
+  const d = await r.json();
+  if (d.ok) toast('TAK config saved & bridge restarting', 'ok');
+  else toast('Error: '+(d.error||'unknown'), 'err');
 }
 
 // ─── ZeroTier ─────────────────────────────────────────────────────────────
