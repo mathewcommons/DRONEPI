@@ -196,13 +196,19 @@ app.get('/api/video/status', async (req, res) => {
 app.get('/api/video/devices', async (req, res) => {
     try {
         const devices = [];
-        try { await execCmd('ls /dev/video0'); devices.push({ path: '/dev/video0', name: 'CSI Camera / Pi Camera' }); } catch {}
         const out = await execCmd('v4l2-ctl --list-devices 2>/dev/null || echo ""');
         const lines = out.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim().startsWith('/dev/video')) {
-                const p = lines[i].trim();
-                if (!devices.find(d => d.path === p)) devices.push({ path: p, name: i > 0 ? lines[i-1].trim() : p });
+        let currentName = '';
+        // Skip internal Pi ISP (pispbe) and decoder devices - only list real cameras
+        const skipPrefixes = ['pispbe', 'rpi-hevc', 'rpi-h264', 'bcm2835'];
+        for (const line of lines) {
+            if (!line.startsWith('\t') && !line.startsWith(' ') && line.trim()) {
+                currentName = line.replace(/\s*\(.*\)\s*:?\s*$/, '').trim();
+            } else if (line.trim().startsWith('/dev/video')) {
+                const skip = skipPrefixes.some(p => currentName.toLowerCase().startsWith(p));
+                if (!skip && !devices.find(d => d.name === currentName)) {
+                    devices.push({ path: line.trim(), name: currentName || line.trim() });
+                }
             }
         }
         if (!devices.length) devices.push({ path: '/dev/video0', name: 'Default Camera' });
