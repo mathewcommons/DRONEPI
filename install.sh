@@ -531,11 +531,11 @@ EOF
 [Unit]
 Description=MAVLink Router
 After=network.target
-ConditionPathExists=/usr/local/bin/mavlink-routerd
+ConditionPathExists=/usr/bin/mavlink-routerd
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/mavlink-routerd -c $CONFIG_DIR/mavlink-router.conf
+ExecStart=/usr/bin/mavlink-routerd -c $CONFIG_DIR/mavlink-router.conf
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
