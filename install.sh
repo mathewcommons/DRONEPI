@@ -247,14 +247,23 @@ PYEOF_INNER
         rm -rf /tmp/mavlink-router
     fi
 
-    cat > "$CONFIG_DIR/mavlink-router.conf" << 'EOF'
+    # Auto-detect flight controller: USB (ttyACM) first, then UART (ttyAMA0)
+    FC_DEV="/dev/ttyAMA0"
+    if ls /dev/serial/by-id/*ardupilot* /dev/serial/by-id/*px4* /dev/serial/by-id/*cuav* /dev/serial/by-id/*holybro* /dev/serial/by-id/*fmu* 2>/dev/null | head -1 | grep -q .; then
+        FC_DEV=$(ls -la /dev/serial/by-id/ 2>/dev/null | grep -iE 'ardupilot|px4|cuav|holybro|fmu' | head -1 | sed 's|.*-> .*/||' | xargs -I{} echo "/dev/{}")
+    elif [[ -e /dev/ttyACM0 ]]; then
+        FC_DEV="/dev/ttyACM0"
+    fi
+    log_info "Flight controller device: $FC_DEV"
+
+    cat > "$CONFIG_DIR/mavlink-router.conf" << EOF
 [General]
 TcpServerPort=5760
 ReportStats=false
 MavlinkDialect=common
 
 [UartEndpoint FC]
-Device=/dev/ttyAMA0
+Device=$FC_DEV
 Baud=57600
 
 [UdpEndpoint GCS1]

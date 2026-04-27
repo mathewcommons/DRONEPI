@@ -111,7 +111,7 @@ app.post('/api/services/:plugin', async (req, res) => {
 app.get('/api/telemetry', (req, res) => res.json(readConfig().telemetry_endpoints || []));
 app.post('/api/telemetry', async (req, res) => {
     try {
-        const cfg = readConfig(); cfg.telemetry_endpoints = req.body; writeConfig(cfg); regenerateMavlinkConfig(cfg);
+        const cfg = readConfig(); cfg.telemetry_endpoints = req.body; writeConfig(cfg); await regenerateMavlinkConfig(cfg);
         try { await execCmd('sudo /usr/bin/systemctl restart mavlink-router'); } catch {}
         res.json({ ok: true });
     } catch(e) { res.status(500).json({ ok: false, error: e.message }); }
@@ -513,9 +513,35 @@ app.get('/api/mediamtx/status', async (req, res) => {
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── FC auto-detection ────────────────────────────────────────────────────
+async function detectFCDevice() {
+    // Check /dev/serial/by-id for ArduPilot / PX4 flight controllers
+    try {
+        const out = await execCmd('ls -la /dev/serial/by-id/ 2>/dev/null || echo ""');
+        for (const line of out.split('\n')) {
+            const m = line.match(/-> \.\.\/(ttyACM\d+|ttyUSB\d+)/);
+            if (m && /ardupilot|px4|cuav|holybro|matek|betaflight|inav|fmu/i.test(line)) {
+                return `/dev/${m[1]}`;
+            }
+        }
+    } catch {}
+    // Fallback: check for any ttyACM device
+    try { await execCmd('ls /dev/ttyACM0'); return '/dev/ttyACM0'; } catch {}
+    // Fallback: UART
+    try { await execCmd('ls /dev/ttyAMA0'); return '/dev/ttyAMA0'; } catch {}
+    return null;
+}
+
+app.get('/api/telemetry/fc', async (req, res) => {
+    const device = await detectFCDevice();
+    res.json({ device, detected: !!device });
+});
+
 // ─── Mavlink config regenerator ────────────────────────────────────────────
-function regenerateMavlinkConfig(cfg) {
-    const lines = ['[General]','TcpServerPort=5760','ReportStats=false','MavlinkDialect=common','','[UartEndpoint FC]','Device=/dev/ttyAMA0','Baud=57600',''];
+async function regenerateMavlinkConfig(cfg) {
+    const fcDevice = await detectFCDevice() || '/dev/ttyAMA0';
+    const baud = cfg.mavlink?.baud || 57600;
+    const lines = ['[General]','TcpServerPort=5760','ReportStats=false','MavlinkDialect=common','',`[UartEndpoint FC]`,`Device=${fcDevice}`,`Baud=${baud}`,''];
     for (const ep of (cfg.telemetry_endpoints || [])) {
         if (!ep.enabled) continue;
         lines.push(`[${ep.protocol === 'tcp' ? 'TcpEndpoint' : 'UdpEndpoint'} ${ep.name.replace(/\s+/g,'_')}]`);
