@@ -1275,9 +1275,8 @@ async function loadConnStrings() {
     }
 
     el.innerHTML =
-      row('Mission Planner (RTSP)', `rtspsrc location=rtsp://${ip}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false`, zt ? `rtspsrc location=rtsp://${zt}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false` : null) +
-      row('Mission Planner (UDP)', `udpsrc port=5600 buffer-size=90000 ! application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264 ! rtph264depay ! avdec_h264 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false`, null) +
-      row('GStreamer CLI (test)', `gst-launch-1.0 rtspsrc location=rtsp://${ip}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink`, zt ? `gst-launch-1.0 rtspsrc location=rtsp://${zt}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink` : null) +
+      row('Mission Planner (GStreamer RTSP)', `gst-launch-1.0 rtspsrc location=rtsp://${ip}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink`, zt ? `gst-launch-1.0 rtspsrc location=rtsp://${zt}:8554/drone0 latency=200 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink` : null) +
+      row('Mission Planner (GStreamer UDP)', `gst-launch-1.0 udpsrc port=5600 ! application/x-rtp,payload=96 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink`, null) +
       row('QGroundControl', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
       row('VLC Media Player', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
       row('OBS Studio (Media Source)', `rtsp://${ip}:8554/drone0`, zt ? `rtsp://${zt}:8554/drone0` : null) +
