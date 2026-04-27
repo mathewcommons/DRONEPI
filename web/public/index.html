@@ -576,7 +576,8 @@
         <div class="card">
           <div class="card-header"><div class="card-title">Bridge Status</div></div>
           <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Converts MAVLink telemetry (GPS, attitude) into CoT XML for ATAK, WinTAK, and any TAK-compatible server.</p>
-          <div class="logv" id="tak-log">Not running...</div>
+          <div class="logv" id="tak-log">Loading...</div>
+          <button class="btn sm" style="margin-top:8px" onclick="refreshTakLog()">↻ Refresh Logs</button>
         </div>
       </div>
     </div>
@@ -716,6 +717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderStreamEPs();
   detectFC();
   loadTakConfig();
+  refreshTakLog();
   refreshStatus();
   setInterval(refreshStatus, 10000);
   refreshNet();
@@ -1181,6 +1183,20 @@ async function loadTakConfig() {
       sel.value = cfg.multicast ? 'multicast' : 'unicast';
     }
   } catch {}
+}
+async function refreshTakLog() {
+  try {
+    const r = await fetch('/api/logs/tak-bridge');
+    const d = await r.json();
+    const el = document.getElementById('tak-log');
+    const lines = (d.lines || []).slice(-30);
+    if (!lines.length) { el.innerHTML = '<span style="color:var(--text3)">No log entries — bridge may not have run yet</span>'; return; }
+    el.innerHTML = lines.map(l => {
+      const cls = /error|Error|ERRO/i.test(l) ? 'le' : /warn|WARN/i.test(l) ? 'lw' : /INFO|start|connect|Heartbeat|CoT/i.test(l) ? 'lo' : '';
+      return `<div class="${cls}">${l.replace(/</g,'&lt;')}</div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch { document.getElementById('tak-log').textContent = 'Error loading logs'; }
 }
 async function saveTakConfig() {
   const cfg = {
